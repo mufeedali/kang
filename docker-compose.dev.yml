@@ -1,0 +1,21 @@
+services:
+  api:
+    command: bun run --watch src/index.ts
+    volumes:
+      - ./apps/api/src:/app/apps/api/src
+
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+      target: dev
+    command: bunx vite --host
+    ports:
+      - "5173:5173"
+    environment:
+      VITE_WS_URL: ws://localhost:3001/ws
+      VITE_API_URL: http://localhost:3001
+    volumes:
+      - ./apps/web/src:/app/apps/web/src
+      - ./apps/web/index.html:/app/apps/web/index.html
+      - ./apps/web/vite.config.ts:/app/apps/web/vite.config.ts
