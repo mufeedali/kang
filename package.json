@@ -14,6 +14,7 @@
     "lint:fix": "bunx @biomejs/biome check --write .",
     "lint:unsafe": "bunx @biomejs/biome check --write --unsafe .",
     "format": "bunx @biomejs/biome format --write .",
-    "build:web": "bun run --cwd apps/web build"
+    "build:web": "bun run --cwd apps/web build",
+    "start": "bun run --cwd apps/web start"
   }
 }
