@@ -77,3 +77,46 @@ export type ClientIntent =
   | MoveTaskIntent
   | DeleteTaskIntent
   | PresenceUpdateIntent;
+
+// ── Server → Client (Events) ──────────────────────────────────────────
+
+export interface BoardStateEvent {
+  event: "BOARD_STATE";
+  tasks: Task[];
+  users: UserInfo[];
+}
+
+export interface TaskCreatedEvent {
+  event: "TASK_CREATED";
+  task: Task;
+}
+
+export interface TaskUpdatedEvent {
+  event: "TASK_UPDATED";
+  task: Task;
+}
+
+export interface TaskDeletedEvent {
+  event: "TASK_DELETED";
+  taskId: string;
+}
+
+export interface ActionRejectedEvent {
+  event: "ACTION_REJECTED";
+  intentId: string;
+  reason: string;
+  serverState?: Task;
+}
+
+export interface PresenceUpdateEvent {
+  event: "PRESENCE_UPDATE";
+  users: UserInfo[];
+}
+
+export type ServerEvent =
+  | BoardStateEvent
+  | TaskCreatedEvent
+  | TaskUpdatedEvent
+  | TaskDeletedEvent
+  | ActionRejectedEvent
+  | PresenceUpdateEvent;
