@@ -1,120 +1,152 @@
-export type TaskStatus = "todo" | "in_progress" | "done";
+import type { Static } from "elysia";
+import { t } from "elysia";
 
-export interface Task {
-  id: string;
-  title: string;
-  description: string | null;
-  status: TaskStatus;
-  rank: string;
-  createdAt: string;
-  updatedAt: string;
-  deletedAt: string | null;
-}
+// ── Shared scalars ──────────────────────────────────────────────────────────
 
-export interface UserInfo {
-  userId: string;
-  displayName: string;
-  color: string;
-}
+export const TaskStatusSchema = t.Union([
+  t.Literal("todo"),
+  t.Literal("in_progress"),
+  t.Literal("done"),
+]);
+export type TaskStatus = Static<typeof TaskStatusSchema>;
 
-// ── Client → Server (Action Intents) ──────────────────────────────────
+export const TaskSchema = t.Object({
+  id: t.String(),
+  title: t.String(),
+  description: t.Union([t.String(), t.Null()]),
+  status: TaskStatusSchema,
+  rank: t.String(),
+  createdAt: t.String(),
+  updatedAt: t.String(),
+  deletedAt: t.Union([t.String(), t.Null()]),
+});
+export type Task = Static<typeof TaskSchema>;
 
-export interface CreateTaskIntent {
-  action: "CREATE_TASK";
-  intentId: string;
-  title: string;
-  description: string | null;
-  status: TaskStatus;
-  rank: string;
-  timestamp: number;
-}
+export const UserInfoSchema = t.Object({
+  userId: t.String(),
+  displayName: t.String(),
+  color: t.String(),
+});
+export type UserInfo = Static<typeof UserInfoSchema>;
 
-export interface EditTaskTitleIntent {
-  action: "EDIT_TASK_TITLE";
-  intentId: string;
-  taskId: string;
-  newTitle: string;
-  timestamp: number;
-}
+// ── Client → Server (Action Intents) ──────────────────────────────────────
 
-export interface EditTaskDescriptionIntent {
-  action: "EDIT_TASK_DESCRIPTION";
-  intentId: string;
-  taskId: string;
-  newDescription: string;
-  timestamp: number;
-}
+export const CreateTaskIntentSchema = t.Object({
+  action: t.Literal("CREATE_TASK"),
+  intentId: t.String(),
+  title: t.String(),
+  description: t.Union([t.String(), t.Null()]),
+  status: TaskStatusSchema,
+  rank: t.String(),
+  timestamp: t.Number(),
+});
 
-export interface MoveTaskIntent {
-  action: "MOVE_TASK";
-  intentId: string;
-  taskId: string;
-  newStatus: TaskStatus;
-  newRank: string;
-  timestamp: number;
-}
+export const EditTaskTitleIntentSchema = t.Object({
+  action: t.Literal("EDIT_TASK_TITLE"),
+  intentId: t.String(),
+  taskId: t.String(),
+  newTitle: t.String(),
+  timestamp: t.Number(),
+});
 
-export interface DeleteTaskIntent {
-  action: "DELETE_TASK";
-  intentId: string;
-  taskId: string;
-  timestamp: number;
-}
+export const EditTaskDescriptionIntentSchema = t.Object({
+  action: t.Literal("EDIT_TASK_DESCRIPTION"),
+  intentId: t.String(),
+  taskId: t.String(),
+  newDescription: t.String(),
+  timestamp: t.Number(),
+});
 
-export interface PresenceUpdateIntent {
-  action: "PRESENCE_UPDATE";
-  userId: string;
-  displayName: string;
-  color: string;
-}
+export const MoveTaskIntentSchema = t.Object({
+  action: t.Literal("MOVE_TASK"),
+  intentId: t.String(),
+  taskId: t.String(),
+  newStatus: TaskStatusSchema,
+  newRank: t.String(),
+  timestamp: t.Number(),
+});
 
-export type ClientIntent =
-  | CreateTaskIntent
-  | EditTaskTitleIntent
-  | EditTaskDescriptionIntent
-  | MoveTaskIntent
-  | DeleteTaskIntent
-  | PresenceUpdateIntent;
+export const DeleteTaskIntentSchema = t.Object({
+  action: t.Literal("DELETE_TASK"),
+  intentId: t.String(),
+  taskId: t.String(),
+  timestamp: t.Number(),
+});
 
-// ── Server → Client (Events) ──────────────────────────────────────────
+export const PresenceUpdateIntentSchema = t.Object({
+  action: t.Literal("PRESENCE_UPDATE"),
+  userId: t.String(),
+  displayName: t.String(),
+  color: t.String(),
+});
 
-export interface BoardStateEvent {
-  event: "BOARD_STATE";
-  tasks: Task[];
-  users: UserInfo[];
-}
+export const ClientIntentSchema = t.Union([
+  CreateTaskIntentSchema,
+  EditTaskTitleIntentSchema,
+  EditTaskDescriptionIntentSchema,
+  MoveTaskIntentSchema,
+  DeleteTaskIntentSchema,
+  PresenceUpdateIntentSchema,
+]);
 
-export interface TaskCreatedEvent {
-  event: "TASK_CREATED";
-  task: Task;
-}
+export type CreateTaskIntent = Static<typeof CreateTaskIntentSchema>;
+export type EditTaskTitleIntent = Static<typeof EditTaskTitleIntentSchema>;
+export type EditTaskDescriptionIntent = Static<
+  typeof EditTaskDescriptionIntentSchema
+>;
+export type MoveTaskIntent = Static<typeof MoveTaskIntentSchema>;
+export type DeleteTaskIntent = Static<typeof DeleteTaskIntentSchema>;
+export type PresenceUpdateIntent = Static<typeof PresenceUpdateIntentSchema>;
+export type ClientIntent = Static<typeof ClientIntentSchema>;
 
-export interface TaskUpdatedEvent {
-  event: "TASK_UPDATED";
-  task: Task;
-}
+// ── Server → Client (Events) ──────────────────────────────────────────────
 
-export interface TaskDeletedEvent {
-  event: "TASK_DELETED";
-  taskId: string;
-}
+export const BoardStateEventSchema = t.Object({
+  event: t.Literal("BOARD_STATE"),
+  tasks: t.Array(TaskSchema),
+  users: t.Array(UserInfoSchema),
+});
 
-export interface ActionRejectedEvent {
-  event: "ACTION_REJECTED";
-  intentId: string;
-  reason: string;
-  serverState?: Task;
-}
+export const TaskCreatedEventSchema = t.Object({
+  event: t.Literal("TASK_CREATED"),
+  task: TaskSchema,
+});
 
-export interface PresenceUpdateEvent {
-  event: "PRESENCE_UPDATE";
-  users: UserInfo[];
-}
+export const TaskUpdatedEventSchema = t.Object({
+  event: t.Literal("TASK_UPDATED"),
+  task: TaskSchema,
+});
 
-export type ServerEvent =
-  | BoardStateEvent
-  | TaskCreatedEvent
-  | TaskUpdatedEvent
-  | TaskDeletedEvent
-  | ActionRejectedEvent
-  | PresenceUpdateEvent;
+export const TaskDeletedEventSchema = t.Object({
+  event: t.Literal("TASK_DELETED"),
+  taskId: t.String(),
+});
+
+export const ActionRejectedEventSchema = t.Object({
+  event: t.Literal("ACTION_REJECTED"),
+  intentId: t.String(),
+  reason: t.String(),
+  serverState: t.Optional(TaskSchema),
+});
+
+export const PresenceUpdateEventSchema = t.Object({
+  event: t.Literal("PRESENCE_UPDATE"),
+  users: t.Array(UserInfoSchema),
+});
+
+export const ServerEventSchema = t.Union([
+  BoardStateEventSchema,
+  TaskCreatedEventSchema,
+  TaskUpdatedEventSchema,
+  TaskDeletedEventSchema,
+  ActionRejectedEventSchema,
+  PresenceUpdateEventSchema,
+]);
+
+export type BoardStateEvent = Static<typeof BoardStateEventSchema>;
+export type TaskCreatedEvent = Static<typeof TaskCreatedEventSchema>;
+export type TaskUpdatedEvent = Static<typeof TaskUpdatedEventSchema>;
+export type TaskDeletedEvent = Static<typeof TaskDeletedEventSchema>;
+export type ActionRejectedEvent = Static<typeof ActionRejectedEventSchema>;
+export type PresenceUpdateEvent = Static<typeof PresenceUpdateEventSchema>;
+export type ServerEvent = Static<typeof ServerEventSchema>;

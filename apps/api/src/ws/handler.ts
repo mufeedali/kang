@@ -45,21 +45,8 @@ export async function handleOpen(ws: ServerWebSocket<unknown>) {
 
 export async function handleMessage(
   ws: ServerWebSocket<unknown>,
-  raw: string | Buffer,
+  intent: ClientIntent,
 ) {
-  let intent: ClientIntent;
-
-  try {
-    intent = JSON.parse(typeof raw === "string" ? raw : raw.toString());
-  } catch {
-    send(ws, {
-      event: "ACTION_REJECTED",
-      intentId: "unknown",
-      reason: "Invalid JSON payload.",
-    });
-    return;
-  }
-
   const validStatuses = ["todo", "in_progress", "done"];
 
   switch (intent.action) {

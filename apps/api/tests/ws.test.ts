@@ -75,15 +75,12 @@ describe("handleOpen", () => {
 describe("handleMessage — PRESENCE_UPDATE", () => {
   test("registers the client and broadcasts presence list", async () => {
     const { ws, sent } = makeWs();
-    await handleMessage(
-      ws,
-      JSON.stringify({
-        action: "PRESENCE_UPDATE",
-        userId: "user-1",
-        displayName: "Brave Fox",
-        color: "#FF5733",
-      }),
-    );
+    await handleMessage(ws, {
+      action: "PRESENCE_UPDATE",
+      userId: "user-1",
+      displayName: "Brave Fox",
+      color: "#FF5733",
+    });
 
     expect(stubService.getAllTasks).not.toHaveBeenCalled();
 
@@ -105,29 +102,23 @@ describe("handleMessage — CREATE_TASK", () => {
     const { ws, sent } = makeWs();
 
     // Register ws in presence map first so it receives broadcasts.
-    await handleMessage(
-      ws,
-      JSON.stringify({
-        action: "PRESENCE_UPDATE",
-        userId: "user-1",
-        displayName: "Brave Fox",
-        color: "#FF5733",
-      }),
-    );
+    await handleMessage(ws, {
+      action: "PRESENCE_UPDATE",
+      userId: "user-1",
+      displayName: "Brave Fox",
+      color: "#FF5733",
+    });
     sent.length = 0;
 
-    await handleMessage(
-      ws,
-      JSON.stringify({
-        action: "CREATE_TASK",
-        intentId: "intent-1",
-        title: "  New Task  ",
-        description: null,
-        status: "todo",
-        rank: "a0",
-        timestamp: Date.now(),
-      }),
-    );
+    await handleMessage(ws, {
+      action: "CREATE_TASK",
+      intentId: "intent-1",
+      title: "  New Task  ",
+      description: null,
+      status: "todo",
+      rank: "a0",
+      timestamp: Date.now(),
+    });
 
     expect(stubService.createTask).toHaveBeenCalledTimes(1);
     expect(sent).toHaveLength(1);
@@ -137,18 +128,15 @@ describe("handleMessage — CREATE_TASK", () => {
   test("rejects CREATE_TASK when title is blank", async () => {
     const { ws, sent } = makeWs();
 
-    await handleMessage(
-      ws,
-      JSON.stringify({
-        action: "CREATE_TASK",
-        intentId: "intent-bad",
-        title: "   ",
-        description: null,
-        status: "todo",
-        rank: "a0",
-        timestamp: Date.now(),
-      }),
-    );
+    await handleMessage(ws, {
+      action: "CREATE_TASK",
+      intentId: "intent-bad",
+      title: "   ",
+      description: null,
+      status: "todo",
+      rank: "a0",
+      timestamp: Date.now(),
+    });
 
     expect(stubService.createTask).not.toHaveBeenCalled();
     expect(sent).toHaveLength(1);
@@ -162,28 +150,22 @@ describe("handleMessage — CREATE_TASK", () => {
 describe("handleMessage — MOVE_TASK", () => {
   test("broadcasts TASK_UPDATED on successful move", async () => {
     const { ws, sent } = makeWs();
-    await handleMessage(
-      ws,
-      JSON.stringify({
-        action: "PRESENCE_UPDATE",
-        userId: "u1",
-        displayName: "X",
-        color: "#fff",
-      }),
-    );
+    await handleMessage(ws, {
+      action: "PRESENCE_UPDATE",
+      userId: "u1",
+      displayName: "X",
+      color: "#fff",
+    });
     sent.length = 0;
 
-    await handleMessage(
-      ws,
-      JSON.stringify({
-        action: "MOVE_TASK",
-        intentId: "intent-move",
-        taskId: FAKE_TASK.id,
-        newStatus: "done",
-        newRank: "b0",
-        timestamp: Date.now(),
-      }),
-    );
+    await handleMessage(ws, {
+      action: "MOVE_TASK",
+      intentId: "intent-move",
+      taskId: FAKE_TASK.id,
+      newStatus: "done",
+      newRank: "b0",
+      timestamp: Date.now(),
+    });
 
     expect(stubService.moveTask).toHaveBeenCalledTimes(1);
     expect(sent[0]?.event).toBe("TASK_UPDATED");
@@ -192,17 +174,14 @@ describe("handleMessage — MOVE_TASK", () => {
   test("sends ACTION_REJECTED on invalid status", async () => {
     const { ws, sent } = makeWs();
 
-    await handleMessage(
-      ws,
-      JSON.stringify({
-        action: "MOVE_TASK",
-        intentId: "intent-bad-status",
-        taskId: FAKE_TASK.id,
-        newStatus: "limbo", // not a valid status
-        newRank: "b0",
-        timestamp: Date.now(),
-      }),
-    );
+    await handleMessage(ws, {
+      action: "MOVE_TASK",
+      intentId: "intent-bad-status",
+      taskId: FAKE_TASK.id,
+      newStatus: "limbo", // not a valid status
+      newRank: "b0",
+      timestamp: Date.now(),
+    });
 
     expect(stubService.moveTask).not.toHaveBeenCalled();
     expect(sent[0]?.event).toBe("ACTION_REJECTED");
@@ -213,15 +192,12 @@ describe("handleMessage — MOVE_TASK", () => {
 
   test("sends ACTION_REJECTED with serverState when service rejects move", async () => {
     const { ws, sent } = makeWs();
-    await handleMessage(
-      ws,
-      JSON.stringify({
-        action: "PRESENCE_UPDATE",
-        userId: "u1",
-        displayName: "X",
-        color: "#fff",
-      }),
-    );
+    await handleMessage(ws, {
+      action: "PRESENCE_UPDATE",
+      userId: "u1",
+      displayName: "X",
+      color: "#fff",
+    });
     sent.length = 0;
 
     stubService.moveTask.mockImplementationOnce(
@@ -233,17 +209,14 @@ describe("handleMessage — MOVE_TASK", () => {
         }) as never,
     );
 
-    await handleMessage(
-      ws,
-      JSON.stringify({
-        action: "MOVE_TASK",
-        intentId: "intent-stale",
-        taskId: FAKE_TASK.id,
-        newStatus: "done",
-        newRank: "b0",
-        timestamp: 1,
-      }),
-    );
+    await handleMessage(ws, {
+      action: "MOVE_TASK",
+      intentId: "intent-stale",
+      taskId: FAKE_TASK.id,
+      newStatus: "done",
+      newRank: "b0",
+      timestamp: 1,
+    });
 
     expect(sent[0]?.event).toBe("ACTION_REJECTED");
     const rej = sent[0] as Extract<ServerEvent, { event: "ACTION_REJECTED" }>;
@@ -255,26 +228,20 @@ describe("handleMessage — MOVE_TASK", () => {
 describe("handleMessage — DELETE_TASK", () => {
   test("broadcasts TASK_DELETED on success", async () => {
     const { ws, sent } = makeWs();
-    await handleMessage(
-      ws,
-      JSON.stringify({
-        action: "PRESENCE_UPDATE",
-        userId: "u1",
-        displayName: "X",
-        color: "#fff",
-      }),
-    );
+    await handleMessage(ws, {
+      action: "PRESENCE_UPDATE",
+      userId: "u1",
+      displayName: "X",
+      color: "#fff",
+    });
     sent.length = 0;
 
-    await handleMessage(
-      ws,
-      JSON.stringify({
-        action: "DELETE_TASK",
-        intentId: "intent-del",
-        taskId: FAKE_TASK.id,
-        timestamp: Date.now(),
-      }),
-    );
+    await handleMessage(ws, {
+      action: "DELETE_TASK",
+      intentId: "intent-del",
+      taskId: FAKE_TASK.id,
+      timestamp: Date.now(),
+    });
 
     expect(stubService.deleteTask).toHaveBeenCalledTimes(1);
     expect(sent[0]?.event).toBe("TASK_DELETED");
@@ -288,19 +255,7 @@ describe("handleMessage — unknown action", () => {
   test("sends ACTION_REJECTED for unknown action type", async () => {
     const { ws, sent } = makeWs();
 
-    await handleMessage(
-      ws,
-      JSON.stringify({ action: "EXPLODE_SERVER", intentId: "x" }),
-    );
-
-    expect(sent).toHaveLength(1);
-    expect(sent[0]?.event).toBe("ACTION_REJECTED");
-  });
-
-  test("sends ACTION_REJECTED for malformed JSON", async () => {
-    const { ws, sent } = makeWs();
-
-    await handleMessage(ws, "not valid json{{{{");
+    await handleMessage(ws, { action: "EXPLODE_SERVER", intentId: "x" });
 
     expect(sent).toHaveLength(1);
     expect(sent[0]?.event).toBe("ACTION_REJECTED");

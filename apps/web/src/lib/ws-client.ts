@@ -1,4 +1,11 @@
-import type { ServerEvent } from "@/types";
+import { treaty } from "@elysiajs/eden";
+import type { ClientIntent, ServerEvent } from "@/types";
+import type { App } from "../../../api/src/contract";
+
+// Derive the subscription type from the app contract so send() and
+// subscribe() are fully type-checked against the backend schemas.
+type TreatyApp = ReturnType<typeof treaty<App>>;
+type WsSub = ReturnType<TreatyApp["ws"]["subscribe"]>;
 
 type WebSocketEventHandler = (event: ServerEvent) => void;
 type ConnectionStatusHandler = (
@@ -8,17 +15,21 @@ type ConnectionStatusHandler = (
 type OpenCallback = () => void;
 
 class WsClient {
-  private ws: WebSocket | null = null;
+  private sub: WsSub | null = null;
   private reconnectTimeout: ReturnType<typeof setTimeout> | null = null;
   private reconnectAttempt = 0;
-  private url: string;
+  private isConnected = false;
+  // Set to true during an explicit disconnect() to suppress the automatic
+  // reconnection that would otherwise fire from the close handler.
+  private disconnecting = false;
+  private host: string;
 
   private onEvent: WebSocketEventHandler | null = null;
   private onConnectionChange: ConnectionStatusHandler | null = null;
   private onOpenCallback: OpenCallback | null = null;
 
-  constructor(url: string) {
-    this.url = url;
+  constructor(host: string) {
+    this.host = host;
   }
 
   setHandlers(
@@ -32,17 +43,14 @@ class WsClient {
   }
 
   get connected(): boolean {
-    return this.ws !== null && this.ws.readyState === WebSocket.OPEN;
+    return this.isConnected;
   }
 
   connect() {
-    if (
-      this.ws &&
-      (this.ws.readyState === WebSocket.CONNECTING ||
-        this.ws.readyState === WebSocket.OPEN)
-    ) {
-      return;
-    }
+    // sub !== null means a connection attempt is already in-flight or open.
+    if (this.sub !== null) return;
+
+    this.disconnecting = false;
 
     if (this.reconnectTimeout) {
       clearTimeout(this.reconnectTimeout);
@@ -50,26 +58,31 @@ class WsClient {
     }
 
     this.onConnectionChange?.(true, false);
-    this.ws = new WebSocket(this.url);
 
-    this.ws.onopen = () => {
+    this.sub = treaty<App>(this.host).ws.subscribe();
+
+    // Capture the raw WebSocket for lifecycle hooks.  Eden serialises/
+    // deserialises JSON automatically, so we only touch rawWs for open/close/
+    // error events — message handling goes through the typed subscribe() below.
+    const rawWs = this.sub.ws;
+
+    this.sub.subscribe(({ data }) => {
+      this.onEvent?.(data);
+    });
+
+    rawWs.onopen = () => {
       this.reconnectAttempt = 0;
+      this.isConnected = true;
       this.onConnectionChange?.(false, true);
       this.onOpenCallback?.();
     };
 
-    this.ws.onmessage = (e) => {
-      try {
-        const event: ServerEvent = JSON.parse(e.data);
-        this.onEvent?.(event);
-      } catch {
-        console.error("Failed to parse server event");
-      }
-    };
-
-    this.ws.onclose = () => {
-      this.ws = null;
+    rawWs.onclose = () => {
+      this.sub = null;
+      this.isConnected = false;
       this.onConnectionChange?.(false, false);
+
+      if (this.disconnecting) return;
 
       if (this.reconnectTimeout) clearTimeout(this.reconnectTimeout);
       // Exponential backoff capped at 30 s
@@ -80,8 +93,8 @@ class WsClient {
       }, delay);
     };
 
-    this.ws.onerror = () => {
-      this.ws?.close();
+    rawWs.onerror = () => {
+      rawWs.close();
     };
   }
 
@@ -91,17 +104,18 @@ class WsClient {
       this.reconnectTimeout = null;
     }
     this.reconnectAttempt = 0;
-    if (this.ws) {
-      this.ws.onclose = null;
-      this.ws.close();
+    this.disconnecting = true;
+    if (this.sub) {
+      this.sub.close();
     }
-    this.ws = null;
+    this.sub = null;
+    this.isConnected = false;
     this.onConnectionChange?.(false, false);
   }
 
-  send(data: unknown): boolean {
-    if (this.ws && this.ws.readyState === WebSocket.OPEN) {
-      this.ws.send(JSON.stringify(data));
+  send(data: ClientIntent): boolean {
+    if (this.isConnected && this.sub) {
+      this.sub.send(data);
       return true;
     }
     return false;
@@ -109,5 +123,5 @@ class WsClient {
 }
 
 export const wsClient = new WsClient(
-  import.meta.env.VITE_WS_URL ?? "ws://localhost:3001/ws",
+  import.meta.env.VITE_API_URL ?? "http://localhost:3001",
 );

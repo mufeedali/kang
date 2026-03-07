@@ -1,5 +1,6 @@
 import { cors } from "@elysiajs/cors";
 import { Elysia } from "elysia";
+import { wsSchemas } from "./contract";
 import { migrate } from "./db/schema";
 import { handleClose, handleMessage, handleOpen } from "./ws/handler";
 
@@ -7,15 +8,18 @@ const port = process.env.PORT ?? 3001;
 
 await migrate();
 
-const app = new Elysia()
+new Elysia()
   .use(cors())
   .get("/health", () => ({ status: "ok" }))
   .ws("/ws", {
+    ...wsSchemas,
     open(ws) {
       handleOpen(ws as never);
     },
     message(ws, message) {
-      handleMessage(ws as never, message as string);
+      // With body schema defined, Elysia validates incoming messages before
+      // this callback fires.  Invalid payloads are dropped automatically.
+      handleMessage(ws as never, message);
     },
     close(ws) {
       handleClose(ws as never);
@@ -25,5 +29,3 @@ const app = new Elysia()
 
 console.log(`Kang API running at http://localhost:${port}`);
 console.log(`WebSocket at ws://localhost:${port}/ws`);
-
-export type App = typeof app;
