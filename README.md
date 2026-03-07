@@ -23,4 +23,16 @@ bun run lint
 
 ## Deployment
 
-The plan is for it to be deployable via Docker/Podman Compose.
+Only tested with podman as of now.
+
+Prod:
+
+```bash
+podman-compose up -d --build
+```
+
+Dev:
+
+```bash
+podman-compose -f docker-compose.yml -f docker-compose.dev.yml up --build
+```
