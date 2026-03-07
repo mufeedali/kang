@@ -1,11 +1,11 @@
 {
   "name": "api",
-  "module": "index.ts",
+  "module": "src/index.ts",
   "type": "module",
   "private": true,
   "scripts": {
-    "dev": "bun --watch index.ts",
-    "start": "bun run index.ts"
+    "dev": "bun run --watch src/index.ts",
+    "start": "bun run src/index.ts"
   },
   "devDependencies": {
     "@types/bun": "latest"
@@ -14,9 +14,7 @@
     "typescript": "^5"
   },
   "dependencies": {
-    "drizzle-orm": "^0.45.1",
     "elysia": "^1.4.27",
-    "fractional-indexing": "^3.2.0",
-    "postgres": "^3.4.8"
+    "fractional-indexing": "^3.2.0"
   }
 }

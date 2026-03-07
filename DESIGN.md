@@ -19,7 +19,7 @@ A multi-user kanban board.
 
 - Backend:
     - Bun with ElysiaJS and Eden for type-safety.
-    - PostgreSQL through Drizzle.
+    - PostgreSQL and SQLite support.
 - Frontend:
     - React 19 + Vite 8 + TypeScript
     - shadcn/ui + Lucide for UI components
@@ -49,7 +49,7 @@ A multi-user kanban board.
                                             │  └───────┬────────┘  │
                                             │          │           │
                                             │  ┌───────▼────────┐  │
-                                            │  │  Drizzle ORM   │  │
+                                            │  │    Bun SQL     │  │
                                             └──┴───────┬────────┴──┘
                                                        │
                                                 ┌──────▼───────┐
