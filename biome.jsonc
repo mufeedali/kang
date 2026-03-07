@@ -16,6 +16,11 @@
   },
   // Organize imports is useful for keeping imports clean automatically
   "assist": { "actions": { "source": { "organizeImports": "on" } } },
+  "css": {
+    "parser": {
+      "tailwindDirectives": true
+    }
+  },
   "linter": {
     "enabled": true,
     "rules": {
