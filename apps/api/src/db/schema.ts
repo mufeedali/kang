@@ -47,7 +47,7 @@ async function migrateSqlite() {
 
 export async function migrate() {
   if (databaseDialect === "sqlite") {
-    migrateSqlite();
+    await migrateSqlite();
     return;
   }
 
