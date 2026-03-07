@@ -8,9 +8,12 @@
     "@biomejs/biome": "^2.4.6"
   },
   "scripts": {
+    "dev:api": "bun run --cwd apps/api dev",
+    "dev:web": "bun run --cwd apps/web dev",
     "lint": "bunx @biomejs/biome check .",
     "lint:fix": "bunx @biomejs/biome check --write .",
     "lint:unsafe": "bunx @biomejs/biome check --write --unsafe .",
-    "format": "bunx @biomejs/biome format --write ."
+    "format": "bunx @biomejs/biome format --write .",
+    "build:web": "bun run --cwd apps/web build"
   }
 }
