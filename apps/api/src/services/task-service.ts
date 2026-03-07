@@ -23,7 +23,9 @@ interface TaskRow {
 }
 
 function toIso(value: Date | number): string {
-  return value instanceof Date ? value.toISOString() : new Date(value).toISOString();
+  return value instanceof Date
+    ? value.toISOString()
+    : new Date(value).toISOString();
 }
 
 function toTask(row: TaskRow): Task {
@@ -43,7 +45,10 @@ function toMs(value: Date | number): number {
   return value instanceof Date ? value.getTime() : value;
 }
 
-function isNewer(intentTimestamp: number, rowUpdatedAt: Date | number): boolean {
+function isNewer(
+  intentTimestamp: number,
+  rowUpdatedAt: Date | number,
+): boolean {
   return intentTimestamp > toMs(rowUpdatedAt);
 }
 
@@ -55,7 +60,10 @@ function dbTimestamp(ms: number): Date | number {
 
 function isUniqueConstraintError(err: unknown): boolean {
   const code = (err as { code?: string })?.code;
-  return code === "23505" || (typeof code === "string" && code.startsWith("SQLITE_CONSTRAINT"));
+  return (
+    code === "23505" ||
+    (typeof code === "string" && code.startsWith("SQLITE_CONSTRAINT"))
+  );
 }
 
 async function getActiveTaskRow(taskId: string): Promise<TaskRow | undefined> {
@@ -98,7 +106,7 @@ export async function createTask(intent: CreateTaskIntent): Promise<Task> {
         )
         RETURNING *
       `;
-      return toTask(row!);
+      return toTask(row as TaskRow);
     } catch (err) {
       if (!isUniqueConstraintError(err)) throw err;
 
@@ -115,7 +123,9 @@ export async function createTask(intent: CreateTaskIntent): Promise<Task> {
 
 export async function editTaskTitle(
   intent: EditTaskTitleIntent,
-): Promise<{ ok: true; task: Task } | { ok: false; reason: string; serverState?: Task }> {
+): Promise<
+  { ok: true; task: Task } | { ok: false; reason: string; serverState?: Task }
+> {
   const existing = await getActiveTaskRow(intent.taskId);
 
   if (!existing) {
@@ -136,12 +146,14 @@ export async function editTaskTitle(
     WHERE id = ${intent.taskId}
     RETURNING *
   `;
-  return { ok: true, task: toTask(updated!) };
+  return { ok: true, task: toTask(updated as TaskRow) };
 }
 
 export async function editTaskDescription(
   intent: EditTaskDescriptionIntent,
-): Promise<{ ok: true; task: Task } | { ok: false; reason: string; serverState?: Task }> {
+): Promise<
+  { ok: true; task: Task } | { ok: false; reason: string; serverState?: Task }
+> {
   const existing = await getActiveTaskRow(intent.taskId);
 
   if (!existing) {
@@ -162,14 +174,16 @@ export async function editTaskDescription(
     WHERE id = ${intent.taskId}
     RETURNING *
   `;
-  return { ok: true, task: toTask(updated!) };
+  return { ok: true, task: toTask(updated as TaskRow) };
 }
 
 // Concurrent move+edit on the same task are safe because edit intents only
 // touch title/description while move intents only touch status+rank.
 export async function moveTask(
   intent: MoveTaskIntent,
-): Promise<{ ok: true; task: Task } | { ok: false; reason: string; serverState?: Task }> {
+): Promise<
+  { ok: true; task: Task } | { ok: false; reason: string; serverState?: Task }
+> {
   const existing = await getActiveTaskRow(intent.taskId);
 
   if (!existing) {
@@ -190,13 +204,16 @@ export async function moveTask(
     WHERE id = ${intent.taskId}
     RETURNING *
   `;
-  return { ok: true, task: toTask(updated!) };
+  return { ok: true, task: toTask(updated as TaskRow) };
 }
 
 // Soft-delete (tombstone). Idempotent: already-deleted tasks are a no-op.
 export async function deleteTask(
   intent: DeleteTaskIntent,
-): Promise<{ ok: true; taskId: string } | { ok: false; reason: string; serverState: Task }> {
+): Promise<
+  | { ok: true; taskId: string }
+  | { ok: false; reason: string; serverState: Task }
+> {
   const [existing] = await db<TaskRow[]>`
     SELECT * FROM tasks WHERE id = ${intent.taskId}
   `;
