@@ -13,6 +13,7 @@ A multi-user kanban board.
     - Non-conflicting actions should not result in a conflict.
 - UI should look decent.
 - Does NOT need to be "production-ready" in the truest sense. But I should be able to explain *how* I could potentially scale it.
+- Dev env must be deployable through Docker/Podman with Compose.
 
 # Stack
 
@@ -20,12 +21,13 @@ A multi-user kanban board.
     - Bun with ElysiaJS and Eden for type-safety.
     - PostgreSQL through Drizzle.
 - Frontend:
-    - React + Vite + TypeScript
+    - React 19 + Vite 8 + TypeScript
     - shadcn/ui + Lucide for UI components
     - Zustand for state management
     - dnd-kit for drag and drop
 - fractional-indexing for task ordering
     - Why? Collision handling has too many edge cases.
+- Biome for linting and formatting.
 
 # Client-Server Architecture
 

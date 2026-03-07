@@ -1,0 +1,25 @@
+{
+  "$schema": "https://biomejs.dev/schemas/2.4.6/schema.json",
+  "vcs": {
+    "enabled": true,
+    "clientKind": "git",
+    "useIgnoreFile": true
+  },
+  "files": {
+    "ignoreUnknown": false,
+    "includes": ["**", "!**/node_modules", "!**/dist", "!**/out"]
+  },
+  "formatter": {
+    "enabled": true,
+    "indentStyle": "space", // Prefer spaces over tabs
+    "indentWidth": 2 // Standard 2-space indentation
+  },
+  // Organize imports is useful for keeping imports clean automatically
+  "assist": { "actions": { "source": { "organizeImports": "on" } } },
+  "linter": {
+    "enabled": true,
+    "rules": {
+      "recommended": true // Enable all recommended rules by default
+    }
+  }
+}
