@@ -2,8 +2,6 @@ import { databaseDialect } from "./config";
 import { db } from "./index.ts";
 
 async function migratePostgres() {
-  await db`CREATE EXTENSION IF NOT EXISTS pgcrypto`;
-
   await db`
     CREATE TABLE IF NOT EXISTS tasks (
       id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
