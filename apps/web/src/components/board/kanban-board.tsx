@@ -12,13 +12,17 @@ import {
   useSensors,
 } from "@dnd-kit/core";
 import { sortableKeyboardCoordinates } from "@dnd-kit/sortable";
-import { generateKeyBetween } from "fractional-indexing";
 import { Kanban } from "lucide-react";
 import { useMemo, useState } from "react";
 import { ErrorBoundary } from "@/components/error-boundary";
 import { useKangStore } from "@/store/kang-store";
 import type { Task, TaskStatus } from "@/types";
 import { Column } from "./column";
+import {
+  getColumnEndDropId,
+  projectTaskMove,
+  sortTasksByRank,
+} from "./drag-projection";
 import { EditTaskDialog } from "./edit-task-dialog";
 import { OfflineBanner } from "./offline-banner";
 import { PresenceIndicator } from "./presence-indicator";
@@ -31,32 +35,6 @@ const COLUMNS: { status: TaskStatus; title: string; color: string }[] = [
 ];
 
 const TASK_STATUSES: TaskStatus[] = ["todo", "in_progress", "done"];
-
-type ProjectedMove = {
-  status: TaskStatus;
-  rank: string;
-};
-
-function getColumnEndDropId(status: TaskStatus): string {
-  return `${status}__end`;
-}
-
-function getDropStatus(overId: string): TaskStatus | null {
-  if (isTaskStatus(overId)) return overId;
-
-  const status = overId.replace(/__end$/, "");
-  return isTaskStatus(status) ? status : null;
-}
-
-function sortTasksByRank(tasks: Task[]): Task[] {
-  return tasks.toSorted((a, b) =>
-    a.rank < b.rank ? -1 : a.rank > b.rank ? 1 : 0,
-  );
-}
-
-function isTaskStatus(value: string): value is TaskStatus {
-  return TASK_STATUSES.includes(value as TaskStatus);
-}
 
 function groupTasksByColumn(tasks: Task[]): Record<TaskStatus, Task[]> {
   const grouped: Record<TaskStatus, Task[]> = {
@@ -74,76 +52,6 @@ function groupTasksByColumn(tasks: Task[]): Record<TaskStatus, Task[]> {
   }
 
   return grouped;
-}
-
-function projectTaskMove(
-  currentTasks: Task[],
-  taskId: string,
-  overId: string,
-): ProjectedMove | null {
-  const overTask = currentTasks.find((task) => task.id === overId);
-  const targetStatus = overTask ? overTask.status : getDropStatus(overId);
-
-  if (!targetStatus) return null;
-
-  const currentActiveTask = currentTasks.find((task) => task.id === taskId);
-  if (!currentActiveTask) return null;
-  const activeStatus = currentActiveTask.status;
-
-  const targetTasks = sortTasksByRank(
-    currentTasks.filter(
-      (task) => task.status === targetStatus && task.id !== taskId,
-    ),
-  );
-
-  if (
-    !overTask ||
-    overId === targetStatus ||
-    overId === getColumnEndDropId(targetStatus)
-  ) {
-    return {
-      status: targetStatus,
-      rank: generateKeyBetween(targetTasks.at(-1)?.rank ?? null, null),
-    };
-  }
-
-  const overIndex = targetTasks.findIndex((task) => task.id === overTask.id);
-  if (overIndex === -1) return null;
-
-  let before: string | null;
-  let after: string | null;
-
-  if (activeStatus === targetStatus) {
-    const activeTasksInTarget = sortTasksByRank(
-      currentTasks.filter((task) => task.status === targetStatus),
-    );
-    const activeIndex = activeTasksInTarget.findIndex(
-      (task) => task.id === taskId,
-    );
-    const overTargetIndex = activeTasksInTarget.findIndex(
-      (task) => task.id === overTask.id,
-    );
-    const isDraggingDown =
-      activeIndex !== -1 &&
-      overTargetIndex !== -1 &&
-      activeIndex < overTargetIndex;
-
-    if (isDraggingDown) {
-      before = targetTasks[overIndex]?.rank ?? null;
-      after = targetTasks[overIndex + 1]?.rank ?? null;
-    } else {
-      before = overIndex > 0 ? targetTasks[overIndex - 1].rank : null;
-      after = targetTasks[overIndex]?.rank ?? null;
-    }
-  } else {
-    before = overIndex > 0 ? targetTasks[overIndex - 1].rank : null;
-    after = targetTasks[overIndex]?.rank ?? null;
-  }
-
-  return {
-    status: targetStatus,
-    rank: generateKeyBetween(before, after),
-  };
 }
 
 export function KanbanBoard() {

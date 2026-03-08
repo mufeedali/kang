@@ -57,6 +57,10 @@ function serverTimestamp(): Date | number {
   return dbTimestamp(Date.now());
 }
 
+function normalizedDescription(value: string): string | null {
+  return value.trim() || null;
+}
+
 function isUniqueConstraintError(err: unknown): boolean {
   const code = (err as { code?: string })?.code;
   return (
@@ -117,6 +121,11 @@ export async function createTask(intent: CreateTaskIntent): Promise<Task> {
     } catch (err) {
       if (!isUniqueConstraintError(err)) throw err;
 
+      const existing = await getTaskRow(intent.intentId);
+      if (existing) {
+        return toTask(existing);
+      }
+
       const [tail] = await db<{ rank: string }[]>`
         SELECT rank FROM tasks
         WHERE status = ${intent.status} AND deleted_at IS NULL
@@ -153,6 +162,10 @@ export async function editTaskTitle(
       return { ok: false, reason: "Task not found or has been deleted." };
     }
 
+    if (existing.title === intent.newTitle.trim()) {
+      return { ok: true, task: toTask(existing) };
+    }
+
     return {
       ok: false,
       reason: "A newer title edit has already been applied.",
@@ -168,11 +181,12 @@ export async function editTaskDescription(
 ): Promise<
   { ok: true; task: Task } | { ok: false; reason: string; serverState?: Task }
 > {
+  const nextDescription = normalizedDescription(intent.newDescription);
   const updatedAt = serverTimestamp();
   const [updated] = await db<TaskRow[]>`
     UPDATE tasks
     SET
-      description = ${intent.newDescription.trim()},
+      description = ${nextDescription},
       description_version = description_version + 1,
       updated_at = ${updatedAt}
     WHERE
@@ -186,6 +200,13 @@ export async function editTaskDescription(
     const existing = await getTaskRow(intent.taskId);
     if (!existing || existing.deleted_at !== null) {
       return { ok: false, reason: "Task not found or has been deleted." };
+    }
+
+    if (
+      existing.description === nextDescription ||
+      (nextDescription === null && existing.description === "")
+    ) {
+      return { ok: true, task: toTask(existing) };
     }
 
     return {
@@ -224,6 +245,13 @@ export async function moveTask(
     const existing = await getTaskRow(intent.taskId);
     if (!existing || existing.deleted_at !== null) {
       return { ok: false, reason: "Task not found or has been deleted." };
+    }
+
+    if (
+      existing.status === intent.newStatus &&
+      existing.rank === intent.newRank
+    ) {
+      return { ok: true, task: toTask(existing) };
     }
 
     return {

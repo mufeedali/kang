@@ -59,6 +59,7 @@ function broadcastUpdateOrReject(
   if (result.ok) {
     broadcast({
       event: "TASK_UPDATED",
+      intentId,
       task: result.task,
       ...getActorFields(ws),
     });
@@ -105,7 +106,12 @@ export async function handleMessage(
       }
 
       const task = await taskService.createTask(intent);
-      broadcast({ event: "TASK_CREATED", task, ...getActorFields(ws) });
+      broadcast({
+        event: "TASK_CREATED",
+        intentId: intent.intentId,
+        task,
+        ...getActorFields(ws),
+      });
       break;
     }
 
@@ -159,6 +165,7 @@ export async function handleMessage(
       if (result.ok) {
         broadcast({
           event: "TASK_DELETED",
+          intentId: intent.intentId,
           taskId: result.taskId,
           ...getActorFields(ws),
         });

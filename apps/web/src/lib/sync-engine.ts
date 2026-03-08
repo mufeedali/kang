@@ -11,6 +11,7 @@ class SyncEngine {
     { intent: ClientIntent; taskTitle: string | null }
   >();
   private offlineQueue: ClientIntent[] = [];
+  private wasConnected = false;
 
   constructor() {
     this.loadQueue();
@@ -18,6 +19,11 @@ class SyncEngine {
     wsClient.setHandlers(
       this.handleServerEvent.bind(this),
       (isConnecting, isConnected) => {
+        if (this.wasConnected && !isConnected) {
+          this.queuePendingIntentsForRetry();
+        }
+
+        this.wasConnected = isConnected;
         useKangStore.setState({ isConnecting, isConnected });
       },
       this.onConnected.bind(this),
@@ -51,6 +57,27 @@ class SyncEngine {
   private saveQueue() {
     localStorage.setItem(QUEUE_KEY, JSON.stringify(this.offlineQueue));
     useKangStore.setState({ offlineQueueLength: this.offlineQueue.length });
+  }
+
+  private hasQueuedIntent(intentId: string): boolean {
+    return this.offlineQueue.some(
+      (intent) => "intentId" in intent && intent.intentId === intentId,
+    );
+  }
+
+  private queuePendingIntentsForRetry() {
+    let queueChanged = false;
+
+    for (const [intentId, entry] of this.pendingIntents) {
+      if (this.hasQueuedIntent(intentId)) continue;
+
+      this.offlineQueue.push(entry.intent);
+      queueChanged = true;
+    }
+
+    if (queueChanged) {
+      this.saveQueue();
+    }
   }
 
   private getTaskTitleForIntent(
@@ -196,11 +223,11 @@ class SyncEngine {
   private handleServerEvent(event: ServerEvent) {
     switch (event.event) {
       case "BOARD_STATE":
-        this.pendingIntents.clear();
         useKangStore.setState({ tasks: event.tasks, users: event.users });
         break;
 
       case "TASK_CREATED": {
+        this.pendingIntents.delete(event.intentId);
         const { currentUser } = useKangStore.getState();
         if (event.actorId && event.actorId !== currentUser.userId) {
           const actor = event.actorName ?? "Someone";
@@ -213,6 +240,7 @@ class SyncEngine {
       }
 
       case "TASK_UPDATED": {
+        this.pendingIntents.delete(event.intentId);
         const { currentUser, tasks } = useKangStore.getState();
         if (event.actorId && event.actorId !== currentUser.userId) {
           const actor = event.actorName ?? "Someone";
@@ -226,6 +254,7 @@ class SyncEngine {
       }
 
       case "TASK_DELETED": {
+        this.pendingIntents.delete(event.intentId);
         const { currentUser, tasks } = useKangStore.getState();
         if (event.actorId && event.actorId !== currentUser.userId) {
           const actor = event.actorName ?? "Someone";

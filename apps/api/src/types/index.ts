@@ -110,6 +110,7 @@ export const BoardStateEventSchema = t.Object({
 
 export const TaskCreatedEventSchema = t.Object({
   event: t.Literal("TASK_CREATED"),
+  intentId: t.String(),
   task: TaskSchema,
   actorId: t.Optional(t.String()),
   actorName: t.Optional(t.String()),
@@ -117,6 +118,7 @@ export const TaskCreatedEventSchema = t.Object({
 
 export const TaskUpdatedEventSchema = t.Object({
   event: t.Literal("TASK_UPDATED"),
+  intentId: t.String(),
   task: TaskSchema,
   actorId: t.Optional(t.String()),
   actorName: t.Optional(t.String()),
@@ -124,6 +126,7 @@ export const TaskUpdatedEventSchema = t.Object({
 
 export const TaskDeletedEventSchema = t.Object({
   event: t.Literal("TASK_DELETED"),
+  intentId: t.String(),
   taskId: t.String(),
   actorId: t.Optional(t.String()),
   actorName: t.Optional(t.String()),

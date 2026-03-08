@@ -311,6 +311,43 @@ export function runConflictSuite(
       expect(final?.title).toBe("New Title");
       expect(final?.description).toBe("New Description");
     });
+
+    test("replaying a cleared description is idempotent", async () => {
+      const task = await svc.createTask({
+        action: "CREATE_TASK",
+        intentId: uuid(),
+        title: "Original",
+        description: "Has description",
+        status: "todo",
+        rank: "a0",
+      });
+
+      const cleared = await svc.editTaskDescription({
+        action: "EDIT_TASK_DESCRIPTION",
+        intentId: uuid(),
+        taskId: task.id,
+        newDescription: "   ",
+        baseDescriptionVersion: task.descriptionVersion,
+      });
+      expect(cleared.ok).toBe(true);
+      if (!cleared.ok) {
+        throw new Error("Expected clearing the description to succeed");
+      }
+      expect(cleared.task.description).toBeNull();
+
+      const replayed = await svc.editTaskDescription({
+        action: "EDIT_TASK_DESCRIPTION",
+        intentId: uuid(),
+        taskId: task.id,
+        newDescription: "   ",
+        baseDescriptionVersion: task.descriptionVersion,
+      });
+      expect(replayed.ok).toBe(true);
+      if (!replayed.ok) {
+        throw new Error("Expected replayed description clear to be idempotent");
+      }
+      expect(replayed.task.description).toBeNull();
+    });
   });
 
   describe("Scenario 8: Multi-client same-rank collision (optimistic retry)", () => {
