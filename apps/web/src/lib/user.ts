@@ -88,7 +88,7 @@ function randomFrom<T>(arr: T[]): T {
   return arr[Math.floor(Math.random() * arr.length)];
 }
 
-const STORAGE_KEY = "kang-user";
+const STORAGE_KEY = "kang-user:v1";
 
 export function getOrCreateUser(): UserInfo {
   const stored = localStorage.getItem(STORAGE_KEY);
