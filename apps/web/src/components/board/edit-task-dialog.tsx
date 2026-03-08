@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -11,6 +11,61 @@ import {
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { useKangStore } from "@/store/kang-store";
+import type { Task } from "@/types";
+
+type EditTaskFormProps = {
+  task: Task;
+  onSave: (newTitle: string, newDescription: string) => void;
+};
+
+function EditTaskForm({ task, onSave }: EditTaskFormProps) {
+  const [editTitle, setEditTitle] = useState(task.title);
+  const [editDescription, setEditDescription] = useState(
+    task.description ?? "",
+  );
+
+  return (
+    <form
+      onSubmit={(e) => {
+        e.preventDefault();
+        onSave(editTitle, editDescription);
+      }}
+    >
+      <div className="space-y-4 pt-2 pb-4">
+        <div className="space-y-2">
+          <label htmlFor="edit-title" className="text-sm font-medium">
+            Title
+          </label>
+          <Input
+            id="edit-title"
+            value={editTitle}
+            onChange={(e) => setEditTitle(e.target.value)}
+            placeholder="Task title..."
+            autoFocus
+          />
+        </div>
+        <div className="space-y-2">
+          <label htmlFor="edit-desc" className="text-sm font-medium">
+            Description
+          </label>
+          <Textarea
+            id="edit-desc"
+            value={editDescription}
+            onChange={(e) => setEditDescription(e.target.value)}
+            placeholder="Description (optional)..."
+            className="min-h-25 resize-none"
+          />
+        </div>
+      </div>
+      <DialogFooter>
+        <DialogClose render={<Button type="button" variant="outline" />}>
+          Cancel
+        </DialogClose>
+        <Button type="submit">Save Changes</Button>
+      </DialogFooter>
+    </form>
+  );
+}
 
 export function EditTaskDialog() {
   const editingTaskId = useKangStore((s) => s.editingTaskId);
@@ -21,28 +76,20 @@ export function EditTaskDialog() {
 
   const task = tasks.find((t) => t.id === editingTaskId) ?? null;
 
-  const [editTitle, setEditTitle] = useState("");
-  const [editDescription, setEditDescription] = useState("");
-
-  // Sync local form state when the dialog opens for a task
-  useEffect(() => {
-    if (task) {
-      setEditTitle(task.title);
-      setEditDescription(task.description ?? "");
-    }
-  }, [task]); // intentionally only on id change, not every task update
-
-  const handleSave = () => {
+  const handleSave = (newTitle: string, newDescription: string) => {
     if (!task) return;
-    const newTitle = editTitle.trim();
-    if (!newTitle) return;
+    const nextTitle = newTitle.trim();
+    if (!nextTitle) return;
 
-    if (newTitle !== task.title) {
-      editTaskTitle(task.id, newTitle);
+    if (nextTitle !== task.title) {
+      editTaskTitle(task.id, nextTitle);
     }
-    if (editDescription.trim() !== (task.description ?? "")) {
-      editTaskDescription(task.id, editDescription.trim());
+
+    const nextDescription = newDescription.trim();
+    if (nextDescription !== (task.description ?? "")) {
+      editTaskDescription(task.id, nextDescription);
     }
+
     setEditingTaskId(null);
   };
 
@@ -57,41 +104,10 @@ export function EditTaskDialog() {
         <DialogHeader>
           <DialogTitle>Edit Task</DialogTitle>
         </DialogHeader>
-        <div className="space-y-4 py-2">
-          <div className="space-y-2">
-            <label htmlFor="edit-title" className="text-sm font-medium">
-              Title
-            </label>
-            <Input
-              id="edit-title"
-              value={editTitle}
-              onChange={(e) => setEditTitle(e.target.value)}
-              placeholder="Task title..."
-              autoFocus
-              onKeyDown={(e) => {
-                if (e.key === "Enter") handleSave();
-              }}
-            />
-          </div>
-          <div className="space-y-2">
-            <label htmlFor="edit-desc" className="text-sm font-medium">
-              Description
-            </label>
-            <Textarea
-              id="edit-desc"
-              value={editDescription}
-              onChange={(e) => setEditDescription(e.target.value)}
-              placeholder="Description (optional)..."
-              className="min-h-[100px] resize-none"
-            />
-          </div>
-        </div>
-        <DialogFooter>
-          <DialogClose render={<Button variant="outline" />}>
-            Cancel
-          </DialogClose>
-          <Button onClick={handleSave}>Save Changes</Button>
-        </DialogFooter>
+        {task && (
+          // Keyed by task id so local form state resets when editing a different task.
+          <EditTaskForm key={task.id} task={task} onSave={handleSave} />
+        )}
       </DialogContent>
     </Dialog>
   );

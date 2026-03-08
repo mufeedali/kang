@@ -1,6 +1,6 @@
 # Kang
 
-Small collaborative kanban board.
+Small multiplayer kanban board.
 
 ## Workspace
 
@@ -23,7 +23,9 @@ bun run lint
 
 ## Deployment
 
-Only tested with podman as of now.
+Demo instance is present at: https://kang.up.railway.app/
+
+The compose files are only tested with podman as of now.
 
 Prod:
 

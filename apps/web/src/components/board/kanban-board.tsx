@@ -220,7 +220,7 @@ export function KanbanBoard() {
             <Kanban className="h-6 w-6 text-primary" />
             <h1 className="text-lg font-bold tracking-tight">Kang</h1>
             <p className="text-xs text-muted-foreground">
-              Collaborative Kanban Board
+              Multiplayer Kanban Board
             </p>
           </div>
 
