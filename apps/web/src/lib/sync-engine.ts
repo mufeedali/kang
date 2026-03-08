@@ -12,6 +12,26 @@ class SyncEngine {
   >();
   private offlineQueue: ClientIntent[] = [];
   private wasConnected = false;
+  private listeningToBrowserEvents = false;
+
+  private readonly handleBrowserOnline = () => {
+    useKangStore.setState({ isBrowserOnline: true });
+    wsClient.connect();
+  };
+
+  private readonly handleBrowserOffline = () => {
+    useKangStore.setState({
+      isBrowserOnline: false,
+      isConnecting: false,
+      isConnected: false,
+    });
+    wsClient.disconnect();
+  };
+
+  private readonly handleVisibilityChange = () => {
+    if (document.visibilityState !== "visible") return;
+    this.reconcileNetworkState();
+  };
 
   constructor() {
     this.loadQueue();
@@ -31,11 +51,50 @@ class SyncEngine {
   }
 
   connect() {
-    wsClient.connect();
+    this.attachBrowserEventListeners();
+    this.reconcileNetworkState();
   }
 
   disconnect() {
+    this.detachBrowserEventListeners();
     wsClient.disconnect();
+  }
+
+  private attachBrowserEventListeners() {
+    if (this.listeningToBrowserEvents || typeof window === "undefined") return;
+
+    window.addEventListener("online", this.handleBrowserOnline);
+    window.addEventListener("offline", this.handleBrowserOffline);
+    document.addEventListener("visibilitychange", this.handleVisibilityChange);
+    this.listeningToBrowserEvents = true;
+  }
+
+  private detachBrowserEventListeners() {
+    if (!this.listeningToBrowserEvents || typeof window === "undefined") return;
+
+    window.removeEventListener("online", this.handleBrowserOnline);
+    window.removeEventListener("offline", this.handleBrowserOffline);
+    document.removeEventListener(
+      "visibilitychange",
+      this.handleVisibilityChange,
+    );
+    this.listeningToBrowserEvents = false;
+  }
+
+  private reconcileNetworkState() {
+    const isBrowserOnline =
+      typeof navigator === "undefined" ? true : navigator.onLine;
+
+    useKangStore.setState({ isBrowserOnline });
+
+    if (!isBrowserOnline) {
+      wsClient.disconnect();
+      return;
+    }
+
+    if (!wsClient.connected) {
+      wsClient.connect();
+    }
   }
 
   private loadQueue() {

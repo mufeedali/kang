@@ -57,6 +57,7 @@ function groupTasksByColumn(tasks: Task[]): Record<TaskStatus, Task[]> {
 export function KanbanBoard() {
   const storeTasks = useKangStore((s) => s.tasks);
   const moveTask = useKangStore((s) => s.moveTask);
+  const isBrowserOnline = useKangStore((s) => s.isBrowserOnline);
   const isConnected = useKangStore((s) => s.isConnected);
   const isConnecting = useKangStore((s) => s.isConnecting);
 
@@ -147,19 +148,23 @@ export function KanbanBoard() {
             <div className="flex items-center gap-2">
               <div
                 className={`h-2 w-2 rounded-full ${
-                  isConnected
-                    ? "bg-green-500 animate-pulse"
-                    : isConnecting
-                      ? "bg-amber-500 animate-pulse"
-                      : "bg-red-500"
+                  !isBrowserOnline
+                    ? "bg-red-500"
+                    : isConnected
+                      ? "bg-green-500 animate-pulse"
+                      : isConnecting
+                        ? "bg-amber-500 animate-pulse"
+                        : "bg-red-500"
                 }`}
               />
               <span className="text-xs text-muted-foreground">
-                {isConnected
-                  ? "Connected"
-                  : isConnecting
-                    ? "Connecting..."
-                    : "Disconnected"}
+                {!isBrowserOnline
+                  ? "Offline"
+                  : isConnected
+                    ? "Connected"
+                    : isConnecting
+                      ? "Connecting..."
+                      : "Disconnected"}
               </span>
             </div>
             <PresenceIndicator />

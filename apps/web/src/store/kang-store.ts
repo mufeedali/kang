@@ -11,6 +11,7 @@ interface KangState {
   currentUser: UserInfo;
 
   // Connection
+  isBrowserOnline: boolean;
   isConnecting: boolean;
   isConnected: boolean;
   offlineQueueLength: number;
@@ -49,6 +50,7 @@ export const useKangStore = create<KangState>((set, get) => ({
   tasks: [],
   users: [],
   currentUser: getOrCreateUser(),
+  isBrowserOnline: typeof navigator === "undefined" ? true : navigator.onLine,
   isConnecting: false,
   isConnected: false,
   offlineQueueLength: 0,
