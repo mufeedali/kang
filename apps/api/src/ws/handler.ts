@@ -84,109 +84,118 @@ export async function handleMessage(
 ) {
   const validStatuses = ["todo", "in_progress", "done"];
 
-  switch (intent.action) {
-    case "PRESENCE_UPDATE": {
-      connectedClients.set(getRaw(ws), {
-        userId: intent.userId,
-        displayName: intent.displayName,
-        color: intent.color,
-      });
-      broadcast({ event: "PRESENCE_UPDATE", users: getPresenceList() });
-      break;
-    }
-
-    case "CREATE_TASK": {
-      if (!intent.title?.trim()) {
-        send(ws, {
-          event: "ACTION_REJECTED",
-          intentId: intent.intentId,
-          reason: "Title is required.",
+  try {
+    switch (intent.action) {
+      case "PRESENCE_UPDATE": {
+        connectedClients.set(getRaw(ws), {
+          userId: intent.userId,
+          displayName: intent.displayName,
+          color: intent.color,
         });
-        return;
+        broadcast({ event: "PRESENCE_UPDATE", users: getPresenceList() });
+        break;
       }
 
-      const task = await taskService.createTask(intent);
-      broadcast({
-        event: "TASK_CREATED",
-        intentId: intent.intentId,
-        task,
-        ...getActorFields(ws),
-      });
-      break;
-    }
+      case "CREATE_TASK": {
+        if (!intent.title?.trim()) {
+          send(ws, {
+            event: "ACTION_REJECTED",
+            intentId: intent.intentId,
+            reason: "Title is required.",
+          });
+          return;
+        }
 
-    case "EDIT_TASK_TITLE": {
-      if (!intent.newTitle?.trim()) {
-        send(ws, {
-          event: "ACTION_REJECTED",
-          intentId: intent.intentId,
-          reason: "Title cannot be empty.",
-        });
-        return;
-      }
-
-      broadcastUpdateOrReject(
-        ws,
-        intent.intentId,
-        await taskService.editTaskTitle(intent),
-      );
-      break;
-    }
-
-    case "EDIT_TASK_DESCRIPTION": {
-      broadcastUpdateOrReject(
-        ws,
-        intent.intentId,
-        await taskService.editTaskDescription(intent),
-      );
-      break;
-    }
-
-    case "MOVE_TASK": {
-      if (!validStatuses.includes(intent.newStatus)) {
-        send(ws, {
-          event: "ACTION_REJECTED",
-          intentId: intent.intentId,
-          reason: `Invalid status: ${intent.newStatus}`,
-        });
-        return;
-      }
-
-      broadcastUpdateOrReject(
-        ws,
-        intent.intentId,
-        await taskService.moveTask(intent),
-      );
-      break;
-    }
-
-    case "DELETE_TASK": {
-      const result = await taskService.deleteTask(intent);
-      if (result.ok) {
+        const task = await taskService.createTask(intent);
         broadcast({
-          event: "TASK_DELETED",
+          event: "TASK_CREATED",
           intentId: intent.intentId,
-          taskId: result.taskId,
+          task,
           ...getActorFields(ws),
         });
-      } else {
+        break;
+      }
+
+      case "EDIT_TASK_TITLE": {
+        if (!intent.newTitle?.trim()) {
+          send(ws, {
+            event: "ACTION_REJECTED",
+            intentId: intent.intentId,
+            reason: "Title cannot be empty.",
+          });
+          return;
+        }
+
+        broadcastUpdateOrReject(
+          ws,
+          intent.intentId,
+          await taskService.editTaskTitle(intent),
+        );
+        break;
+      }
+
+      case "EDIT_TASK_DESCRIPTION": {
+        broadcastUpdateOrReject(
+          ws,
+          intent.intentId,
+          await taskService.editTaskDescription(intent),
+        );
+        break;
+      }
+
+      case "MOVE_TASK": {
+        if (!validStatuses.includes(intent.newStatus)) {
+          send(ws, {
+            event: "ACTION_REJECTED",
+            intentId: intent.intentId,
+            reason: `Invalid status: ${intent.newStatus}`,
+          });
+          return;
+        }
+
+        broadcastUpdateOrReject(
+          ws,
+          intent.intentId,
+          await taskService.moveTask(intent),
+        );
+        break;
+      }
+
+      case "DELETE_TASK": {
+        const result = await taskService.deleteTask(intent);
+        if (result.ok) {
+          broadcast({
+            event: "TASK_DELETED",
+            intentId: intent.intentId,
+            taskId: result.taskId,
+            ...getActorFields(ws),
+          });
+        } else {
+          send(ws, {
+            event: "ACTION_REJECTED",
+            intentId: intent.intentId,
+            reason: result.reason,
+            serverState: result.serverState,
+          });
+        }
+        break;
+      }
+
+      default: {
         send(ws, {
           event: "ACTION_REJECTED",
-          intentId: intent.intentId,
-          reason: result.reason,
-          serverState: result.serverState,
+          intentId: "unknown",
+          reason: `Unknown action: ${(intent as { action: string }).action}`,
         });
       }
-      break;
     }
-
-    default: {
-      send(ws, {
-        event: "ACTION_REJECTED",
-        intentId: "unknown",
-        reason: `Unknown action: ${(intent as { action: string }).action}`,
-      });
-    }
+  } catch (err) {
+    console.error("Failed to handle websocket intent", err);
+    send(ws, {
+      event: "ACTION_REJECTED",
+      intentId: "intentId" in intent ? intent.intentId : "unknown",
+      reason: "The server could not apply that action.",
+    });
   }
 }
 

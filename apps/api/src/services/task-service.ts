@@ -85,6 +85,20 @@ async function getTaskRow(taskId: string): Promise<TaskRow | undefined> {
   return row;
 }
 
+async function getTaskAtPosition(
+  status: Task["status"],
+  rank: string,
+): Promise<TaskRow | undefined> {
+  const [row] = await db<TaskRow[]>`
+    SELECT * FROM tasks
+    WHERE
+      status = ${status}
+      AND rank = ${rank}
+      AND deleted_at IS NULL
+  `;
+  return row;
+}
+
 export async function getAllTasks(): Promise<Task[]> {
   const rows = await db<TaskRow[]>`
     SELECT * FROM tasks
@@ -227,19 +241,50 @@ export async function moveTask(
   { ok: true; task: Task } | { ok: false; reason: string; serverState?: Task }
 > {
   const updatedAt = serverTimestamp();
-  const [updated] = await db<TaskRow[]>`
-    UPDATE tasks
-    SET
-      status = ${intent.newStatus},
-      rank = ${intent.newRank},
-      position_version = position_version + 1,
-      updated_at = ${updatedAt}
-    WHERE
-      id = ${intent.taskId}
-      AND deleted_at IS NULL
-      AND position_version = ${intent.basePositionVersion}
-    RETURNING *
-  `;
+  let updated: TaskRow | undefined;
+
+  try {
+    [updated] = await db<TaskRow[]>`
+      UPDATE tasks
+      SET
+        status = ${intent.newStatus},
+        rank = ${intent.newRank},
+        position_version = position_version + 1,
+        updated_at = ${updatedAt}
+      WHERE
+        id = ${intent.taskId}
+        AND deleted_at IS NULL
+        AND position_version = ${intent.basePositionVersion}
+      RETURNING *
+    `;
+  } catch (err) {
+    if (!isUniqueConstraintError(err)) throw err;
+
+    const existing = await getTaskRow(intent.taskId);
+    if (!existing || existing.deleted_at !== null) {
+      return { ok: false, reason: "Task not found or has been deleted." };
+    }
+
+    if (
+      existing.status === intent.newStatus &&
+      existing.rank === intent.newRank
+    ) {
+      return { ok: true, task: toTask(existing) };
+    }
+
+    const conflictingTask = await getTaskAtPosition(
+      intent.newStatus,
+      intent.newRank,
+    );
+
+    return {
+      ok: false,
+      reason: conflictingTask
+        ? "Another task already occupies that position."
+        : "That position is no longer available.",
+      serverState: toTask(existing),
+    };
+  }
 
   if (!updated) {
     const existing = await getTaskRow(intent.taskId);

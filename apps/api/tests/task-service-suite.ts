@@ -113,6 +113,59 @@ export function runConflictSuite(
         expect(staleResult.serverState?.status).toBe("done");
       }
     });
+
+    test("same target rank on different tasks is rejected without throwing", async () => {
+      const first = await svc.createTask({
+        action: "CREATE_TASK",
+        intentId: uuid(),
+        title: "First",
+        description: null,
+        status: "todo",
+        rank: "a0",
+      });
+      const second = await svc.createTask({
+        action: "CREATE_TASK",
+        intentId: uuid(),
+        title: "Second",
+        description: null,
+        status: "done",
+        rank: "a0",
+      });
+
+      const accepted = await svc.moveTask({
+        action: "MOVE_TASK",
+        intentId: uuid(),
+        taskId: first.id,
+        newStatus: "in_progress",
+        newRank: "a0",
+        basePositionVersion: first.positionVersion,
+      });
+      expect(accepted.ok).toBe(true);
+
+      const rejected = await svc.moveTask({
+        action: "MOVE_TASK",
+        intentId: uuid(),
+        taskId: second.id,
+        newStatus: "in_progress",
+        newRank: "a0",
+        basePositionVersion: second.positionVersion,
+      });
+
+      expect(rejected.ok).toBe(false);
+      if (!rejected.ok) {
+        expect(rejected.reason).toContain("occupies that position");
+        expect(rejected.serverState?.id).toBe(second.id);
+        expect(rejected.serverState?.status).toBe("done");
+        expect(rejected.serverState?.rank).toBe("a0");
+      }
+
+      const finalFirst = await svc.getTask(first.id);
+      const finalSecond = await svc.getTask(second.id);
+      expect(finalFirst?.status).toBe("in_progress");
+      expect(finalFirst?.rank).toBe("a0");
+      expect(finalSecond?.status).toBe("done");
+      expect(finalSecond?.rank).toBe("a0");
+    });
   });
 
   describe("Scenario 3: Concurrent Reorder + Add", () => {

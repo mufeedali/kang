@@ -232,11 +232,16 @@ class SyncEngine {
     const title = event.serverState?.title ?? taskTitle;
     const t = title ? `"${title}"` : "This task";
     const wasDeleted = event.reason.toLowerCase().includes("deleted");
+    const wasPositionConflict = event.reason
+      .toLowerCase()
+      .includes("occupies that position");
 
     switch (intent?.action) {
       case "MOVE_TASK":
         if (wasDeleted) {
           toast.error(`${t} was deleted by another user.`);
+        } else if (wasPositionConflict) {
+          toast.error(`${t}: that spot was already taken by another change.`);
         } else if (event.serverState) {
           const col =
             STATUS_LABELS[event.serverState.status] ?? event.serverState.status;
