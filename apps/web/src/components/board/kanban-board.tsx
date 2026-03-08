@@ -2,7 +2,6 @@ import {
   closestCorners,
   DndContext,
   type DragEndEvent,
-  type DragOverEvent,
   DragOverlay,
   type DragStartEvent,
   KeyboardSensor,
@@ -21,6 +20,7 @@ import { Column } from "./column";
 import { EditTaskDialog } from "./edit-task-dialog";
 import { OfflineBanner } from "./offline-banner";
 import { PresenceIndicator } from "./presence-indicator";
+import { TaskCardPreview } from "./task-card";
 
 const COLUMNS: { status: TaskStatus; title: string; color: string }[] = [
   { status: "todo", title: "To Do", color: "#3B82F6" },
@@ -140,9 +140,6 @@ export function KanbanBoard() {
   const isConnecting = useKangStore((s) => s.isConnecting);
 
   const [activeTask, setActiveTask] = useState<Task | null>(null);
-  const [dragTasks, setDragTasks] = useState<Task[] | null>(null);
-
-  const tasks = dragTasks ?? storeTasks;
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -153,60 +150,36 @@ export function KanbanBoard() {
     }),
   );
 
-  const tasksByColumn = useMemo(() => groupTasksByColumn(tasks), [tasks]);
+  const tasksByColumn = useMemo(
+    () => groupTasksByColumn(storeTasks),
+    [storeTasks],
+  );
 
   const handleDragStart = (event: DragStartEvent) => {
     const task = storeTasks.find((t) => t.id === event.active.id);
     if (task) setActiveTask(task);
   };
 
-  const handleDragOver = (event: DragOverEvent) => {
-    const { active, over } = event;
-    if (!over) return;
-
-    const taskId = active.id as string;
-    const overId = over.id as string;
-    setDragTasks((prev) => {
-      const current = prev ?? storeTasks;
-      const projected = activeTask
-        ? projectTaskMove(current, taskId, overId)
-        : null;
-      if (!projected) return current;
-
-      return current.map((task) =>
-        task.id === taskId
-          ? {
-              ...task,
-              status: projected.status,
-              rank: projected.rank,
-            }
-          : task,
-      );
-    });
-  };
-
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
     const originalTask = activeTask;
-    const projectedTasks = dragTasks ?? storeTasks;
 
     setActiveTask(null);
-    setDragTasks(null);
 
     if (!over || !originalTask) return;
 
     const taskId = active.id as string;
-    const projectedTask = projectedTasks.find((task) => task.id === taskId);
-    if (!projectedTask) return;
+    const projected = projectTaskMove(storeTasks, taskId, over.id as string);
+    if (!projected) return;
 
     if (
-      projectedTask.status === originalTask.status &&
-      projectedTask.rank === originalTask.rank
+      projected.status === originalTask.status &&
+      projected.rank === originalTask.rank
     ) {
       return;
     }
 
-    moveTask(taskId, projectedTask.status, projectedTask.rank);
+    moveTask(taskId, projected.status, projected.rank);
   };
 
   return (
@@ -261,7 +234,6 @@ export function KanbanBoard() {
             sensors={sensors}
             collisionDetection={closestCorners}
             onDragStart={handleDragStart}
-            onDragOver={handleDragOver}
             onDragEnd={handleDragEnd}
           >
             <div className="flex gap-4 overflow-x-auto pb-4">
@@ -278,9 +250,10 @@ export function KanbanBoard() {
 
             <DragOverlay>
               {activeTask && (
-                <div className="rotate-2 opacity-90 w-[320px] rounded-lg border bg-card p-3 shadow-2xl">
-                  <p className="text-sm font-medium">{activeTask.title}</p>
-                </div>
+                <TaskCardPreview
+                  task={activeTask}
+                  className="rotate-2 opacity-90 w-[320px] shadow-2xl"
+                />
               )}
             </DragOverlay>
           </DndContext>
