@@ -77,6 +77,9 @@ export const useKangStore = create<KangState>((set, get) => ({
       description,
       status,
       rank: newRank,
+      titleVersion: 0,
+      descriptionVersion: 0,
+      positionVersion: 0,
       createdAt: new Date(timestamp).toISOString(),
       updatedAt: new Date(timestamp).toISOString(),
       deletedAt: null,
@@ -91,11 +94,13 @@ export const useKangStore = create<KangState>((set, get) => ({
       description,
       status,
       rank: newRank,
-      timestamp,
     });
   },
 
   editTaskTitle: (taskId, newTitle) => {
+    const existingTask = get().tasks.find((task) => task.id === taskId);
+    if (!existingTask) return;
+
     const intentId = crypto.randomUUID();
     const timestamp = Date.now();
 
@@ -103,6 +108,7 @@ export const useKangStore = create<KangState>((set, get) => ({
       tasks: updateTask(state.tasks, taskId, (task) => ({
         ...task,
         title: newTitle,
+        titleVersion: task.titleVersion + 1,
         updatedAt: new Date(timestamp).toISOString(),
       })),
     }));
@@ -112,11 +118,14 @@ export const useKangStore = create<KangState>((set, get) => ({
       intentId,
       taskId,
       newTitle,
-      timestamp,
+      baseTitleVersion: existingTask.titleVersion,
     });
   },
 
   editTaskDescription: (taskId, newDescription) => {
+    const existingTask = get().tasks.find((task) => task.id === taskId);
+    if (!existingTask) return;
+
     const intentId = crypto.randomUUID();
     const timestamp = Date.now();
 
@@ -124,6 +133,7 @@ export const useKangStore = create<KangState>((set, get) => ({
       tasks: updateTask(state.tasks, taskId, (task) => ({
         ...task,
         description: newDescription,
+        descriptionVersion: task.descriptionVersion + 1,
         updatedAt: new Date(timestamp).toISOString(),
       })),
     }));
@@ -133,11 +143,14 @@ export const useKangStore = create<KangState>((set, get) => ({
       intentId,
       taskId,
       newDescription,
-      timestamp,
+      baseDescriptionVersion: existingTask.descriptionVersion,
     });
   },
 
   moveTask: (taskId, newStatus, newRank) => {
+    const existingTask = get().tasks.find((task) => task.id === taskId);
+    if (!existingTask) return;
+
     const intentId = crypto.randomUUID();
     const timestamp = Date.now();
 
@@ -146,6 +159,7 @@ export const useKangStore = create<KangState>((set, get) => ({
         ...task,
         status: newStatus,
         rank: newRank,
+        positionVersion: task.positionVersion + 1,
         updatedAt: new Date(timestamp).toISOString(),
       })),
     }));
@@ -156,13 +170,12 @@ export const useKangStore = create<KangState>((set, get) => ({
       taskId,
       newStatus,
       newRank,
-      timestamp,
+      basePositionVersion: existingTask.positionVersion,
     });
   },
 
   deleteTask: (taskId) => {
     const intentId = crypto.randomUUID();
-    const timestamp = Date.now();
 
     // Optimistic: remove immediately
     set((state) => ({
@@ -173,7 +186,6 @@ export const useKangStore = create<KangState>((set, get) => ({
       action: "DELETE_TASK",
       intentId,
       taskId,
-      timestamp,
     });
   },
 }));

@@ -3,7 +3,7 @@ import {
   SortableContext,
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
-import { Check, Plus, X } from "lucide-react";
+import { Check, GripVertical, Plus, X } from "lucide-react";
 import { useMemo, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -20,9 +20,38 @@ interface ColumnProps {
   title: string;
   tasks: Task[];
   accentColor: string;
+  previewTask?: Task | null;
+  previewOverId?: string | null;
 }
 
-export function Column({ status, title, tasks, accentColor }: ColumnProps) {
+function DropPreview({ task }: { task: Task }) {
+  return (
+    <div className="rounded-xl border border-dashed border-primary/60 bg-primary/5 p-3">
+      <div className="flex items-start gap-2">
+          <GripVertical className="mt-0.5 h-4 w-4 shrink-0 text-primary/40" />
+        <div className="min-w-0 flex-1">
+          <p className="text-sm font-medium leading-snug break-words text-foreground/85">
+            {task.title}
+          </p>
+          {task.description && (
+            <p className="mt-2 text-xs leading-relaxed break-words text-muted-foreground line-clamp-3">
+              {task.description}
+            </p>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export function Column({
+  status,
+  title,
+  tasks,
+  accentColor,
+  previewTask = null,
+  previewOverId = null,
+}: ColumnProps) {
   const [isAdding, setIsAdding] = useState(false);
   const [newTitle, setNewTitle] = useState("");
   const [newDescription, setNewDescription] = useState("");
@@ -31,6 +60,10 @@ export function Column({ status, title, tasks, accentColor }: ColumnProps) {
   const { setNodeRef, isOver } = useDroppable({ id: status });
 
   const taskIds = useMemo(() => tasks.map((t) => t.id), [tasks]);
+  const showPreviewAtEnd =
+    !!previewTask &&
+    tasks.length > 0 &&
+    (!previewOverId || previewOverId === status);
 
   const handleAdd = () => {
     const trimmed = newTitle.trim();
@@ -128,8 +161,15 @@ export function Column({ status, title, tasks, accentColor }: ColumnProps) {
         <SortableContext items={taskIds} strategy={verticalListSortingStrategy}>
           <div ref={setNodeRef} className="space-y-2 min-h-[40px] px-3 pb-3">
             {tasks.map((task) => (
-              <TaskCard key={task.id} task={task} />
+              <div key={task.id} className="space-y-2">
+                {previewTask && previewOverId === task.id && <DropPreview task={previewTask} />}
+                <TaskCard task={task} />
+              </div>
             ))}
+            {showPreviewAtEnd && <DropPreview task={previewTask} />}
+            {!tasks.length && previewTask && previewOverId === status && (
+              <DropPreview task={previewTask} />
+            )}
           </div>
         </SortableContext>
       </ScrollArea>

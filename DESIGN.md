@@ -13,8 +13,20 @@ A multi-user kanban board.
     - Zustand for state management
     - dnd-kit for drag and drop
 - fractional-indexing for task ordering
-    - Why? Collision handling has too many edge cases.
 - Biome for linting and formatting.
+
+## Why
+
+### Bun
+
+- I chose to use Bun instead of Node because it helps me think less.
+- Personally, I like efforts like `uv` and `bun` that try to copy the `cargo` model.
+- Bun also comes with a lot of useful batteries included, like Bun.SQL for example.
+- Similar reasoning for Biome.
+
+### fractional-indexing
+
+Index collision handling has too many edge cases and I would like to ensure stability.
 
 # Personal Principles
 
@@ -32,26 +44,25 @@ A multi-user kanban board.
 
 # Client-Server Architecture
 
-
 ```
-┌──────────────┐         WebSocket          ┌──────────────────────┐
-│   Client A   │<──────────────────────────>│                      │
-│  (React +    │                            │     Elysia / Bun     │
-│   Zustand)   │                            │                      │
-└──────────────┘                            │  ┌────────────────┐  │
-                                            │  │  WS Handler    │  │
-┌──────────────┐         WebSocket          │  │  (thin layer)  │  │
-│   Client B   │<──────────────────────────>│  └───────┬────────┘  │
-└──────────────┘                            │          │           │
-                                            │  ┌───────▼────────┐  │
-                                            │  │  task-service  │  │
-                                            │  │   (business    │  │
-                                            │  │  logic / LWW)  │  │
-                                            │  └───────┬────────┘  │
-                                            │          │           │
-                                            │  ┌───────▼────────┐  │
-                                            │  │    Bun SQL     │  │
-                                            └──┴───────┬────────┴──┘
+┌───────────────────────┐     WebSocket     ┌──────────────────────┐
+│       Client A        │◄─────────────────►│                      │
+│  ┌─────────────────┐  │                   │     Elysia / Bun     │
+│  │   React UI      │  │                   │                      │
+│  └────────┬────────┘  │                   │  ┌────────────────┐  │
+│  ┌────────▼────────┐  │                   │  │  WS Handler    │  │
+│  │   kang-store    │  │                   │  │  (thin layer)  │  │
+│  │   (Zustand)     │  │                   │  └───────┬────────┘  │
+│  └────────┬────────┘  │                   │          │           │
+│  ┌────────▼────────┐  │     WebSocket     │  ┌───────▼────────┐  │
+│  │   sync-engine   │  │◄─────────────────►│  │  task-service  │  │
+│  │  (queue/toasts) │  │                   │  │   (business    │  │
+│  └────────┬────────┘  │                   │  │  logic / LWW)  │  │
+│  ┌────────▼────────┐  │                   │  └───────┬────────┘  │
+│  │   ws-client     │  │                   │          │           │
+│  │  (transport)    │  │                   │  ┌───────▼────────┐  │
+│  └─────────────────┘  │                   │  │    Bun SQL     │  │
+└───────────────────────┘                   └──┴───────┬────────┴──┘
                                                        │
                                                 ┌──────▼───────┐
                                                 │  PostgreSQL  │
@@ -60,22 +71,26 @@ A multi-user kanban board.
 
 # Data Handling
 
-- Within PostgreSQL, only a tasks table, nothing else.
+- Within DB, only a tasks table, nothing else.
 - "Users" will be in server memory and user's localStorage.
     - Anyone who connects to the WebSocket is a user.
     - We create a UUID, a display name and a user color.
     - We use localStorage, so the identity is re-usable throughout that server session and browser's existence.
 
+# UI/UX
+
+I'm not great with UI/UX. So my focus is on keeping things looking okayish while making sure that most typical interactions are straightforward.
+
 # Conflict Resolution
 
-Every mutating intent carries a client `timestamp` (ms since epoch). The server rejects it if the timestamp predates the task's `updated_at`, responding with `ACTION_REJECTED` + current server state for client reconciliation.
+The server is the source of truth. Each task has separate version counters for `title`, `description`, and `position` (`status` + `rank`). A change only succeeds if the version the client last saw still matches the version in the database.
 
-`updated_at` is per-task, not per-field. Two intents targeting different fields (e.g. a move and a title edit) can both succeed; two intents targeting the same field go through LWW and the loser gets an `ACTION_REJECTED` toast. The client clock is trusted — clock skew can cause unfair LWW outcomes, which is acceptable at this scale.
+This means unrelated changes can both succeed, while true conflicts on the same field are rejected instead of being silently overwritten. Deleted tasks use a simple tombstone (`deleted_at`), and server time is used for `updated_at`.
 
 | Scenario | Outcome |
 |---|---|
-| Concurrent move + edit | Both succeed — they touch different fields, so neither timestamp conflicts with the other. |
-| Concurrent move + move | LWW — the later timestamp wins; the losing client receives `ACTION_REJECTED` with the current task state and rolls back its optimistic update. |
+| Concurrent move + edit | Both succeed — move checks `position_version`; content edits check their own version counters. |
+| Concurrent move + move | Only one move can update `position_version`. The other client gets `ACTION_REJECTED` with the latest server state and rolls back its optimistic update. |
 | Concurrent reorder / add | Both succeed — independent fractional-index keys are generated with no overlap, so there is no conflict to resolve. |
 
 # Task Ordering

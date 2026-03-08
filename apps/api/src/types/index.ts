@@ -16,6 +16,9 @@ export const TaskSchema = t.Object({
   description: t.Union([t.String(), t.Null()]),
   status: TaskStatusSchema,
   rank: t.String(),
+  titleVersion: t.Number(),
+  descriptionVersion: t.Number(),
+  positionVersion: t.Number(),
   createdAt: t.String(),
   updatedAt: t.String(),
   deletedAt: t.Union([t.String(), t.Null()]),
@@ -38,7 +41,6 @@ export const CreateTaskIntentSchema = t.Object({
   description: t.Union([t.String(), t.Null()]),
   status: TaskStatusSchema,
   rank: t.String(),
-  timestamp: t.Number(),
 });
 
 export const EditTaskTitleIntentSchema = t.Object({
@@ -46,7 +48,7 @@ export const EditTaskTitleIntentSchema = t.Object({
   intentId: t.String(),
   taskId: t.String(),
   newTitle: t.String(),
-  timestamp: t.Number(),
+  baseTitleVersion: t.Number(),
 });
 
 export const EditTaskDescriptionIntentSchema = t.Object({
@@ -54,7 +56,7 @@ export const EditTaskDescriptionIntentSchema = t.Object({
   intentId: t.String(),
   taskId: t.String(),
   newDescription: t.String(),
-  timestamp: t.Number(),
+  baseDescriptionVersion: t.Number(),
 });
 
 export const MoveTaskIntentSchema = t.Object({
@@ -63,14 +65,13 @@ export const MoveTaskIntentSchema = t.Object({
   taskId: t.String(),
   newStatus: TaskStatusSchema,
   newRank: t.String(),
-  timestamp: t.Number(),
+  basePositionVersion: t.Number(),
 });
 
 export const DeleteTaskIntentSchema = t.Object({
   action: t.Literal("DELETE_TASK"),
   intentId: t.String(),
   taskId: t.String(),
-  timestamp: t.Number(),
 });
 
 export const PresenceUpdateIntentSchema = t.Object({

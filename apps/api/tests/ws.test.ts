@@ -14,6 +14,9 @@ const FAKE_TASK: Task = {
   description: null,
   status: "todo",
   rank: "a0",
+  titleVersion: 0,
+  descriptionVersion: 0,
+  positionVersion: 0,
   createdAt: new Date(0).toISOString(),
   updatedAt: new Date(0).toISOString(),
   deletedAt: null,
@@ -117,7 +120,6 @@ describe("handleMessage — CREATE_TASK", () => {
       description: null,
       status: "todo",
       rank: "a0",
-      timestamp: Date.now(),
     });
 
     expect(stubService.createTask).toHaveBeenCalledTimes(1);
@@ -135,7 +137,6 @@ describe("handleMessage — CREATE_TASK", () => {
       description: null,
       status: "todo",
       rank: "a0",
-      timestamp: Date.now(),
     });
 
     expect(stubService.createTask).not.toHaveBeenCalled();
@@ -164,7 +165,7 @@ describe("handleMessage — MOVE_TASK", () => {
       taskId: FAKE_TASK.id,
       newStatus: "done",
       newRank: "b0",
-      timestamp: Date.now(),
+      basePositionVersion: 0,
     });
 
     expect(stubService.moveTask).toHaveBeenCalledTimes(1);
@@ -180,8 +181,8 @@ describe("handleMessage — MOVE_TASK", () => {
       taskId: FAKE_TASK.id,
       newStatus: "limbo", // not a valid status
       newRank: "b0",
-      timestamp: Date.now(),
-    });
+      basePositionVersion: 0,
+    } as never);
 
     expect(stubService.moveTask).not.toHaveBeenCalled();
     expect(sent[0]?.event).toBe("ACTION_REJECTED");
@@ -215,7 +216,7 @@ describe("handleMessage — MOVE_TASK", () => {
       taskId: FAKE_TASK.id,
       newStatus: "done",
       newRank: "b0",
-      timestamp: 1,
+      basePositionVersion: 0,
     });
 
     expect(sent[0]?.event).toBe("ACTION_REJECTED");
@@ -240,7 +241,6 @@ describe("handleMessage — DELETE_TASK", () => {
       action: "DELETE_TASK",
       intentId: "intent-del",
       taskId: FAKE_TASK.id,
-      timestamp: Date.now(),
     });
 
     expect(stubService.deleteTask).toHaveBeenCalledTimes(1);
@@ -255,7 +255,10 @@ describe("handleMessage — unknown action", () => {
   test("sends ACTION_REJECTED for unknown action type", async () => {
     const { ws, sent } = makeWs();
 
-    await handleMessage(ws, { action: "EXPLODE_SERVER", intentId: "x" });
+    await handleMessage(ws, {
+      action: "EXPLODE_SERVER",
+      intentId: "x",
+    } as never);
 
     expect(sent).toHaveLength(1);
     expect(sent[0]?.event).toBe("ACTION_REJECTED");

@@ -1,7 +1,9 @@
 import {
   closestCorners,
+  type DragCancelEvent,
   DndContext,
   type DragEndEvent,
+  type DragOverEvent,
   DragOverlay,
   type DragStartEvent,
   KeyboardSensor,
@@ -33,6 +35,12 @@ const TASK_STATUSES: TaskStatus[] = ["todo", "in_progress", "done"];
 type ProjectedMove = {
   status: TaskStatus;
   rank: string;
+};
+
+type DragPreview = {
+  task: Task;
+  status: TaskStatus;
+  overId: string;
 };
 
 function sortTasksByRank(tasks: Task[]): Task[] {
@@ -140,6 +148,7 @@ export function KanbanBoard() {
   const isConnecting = useKangStore((s) => s.isConnecting);
 
   const [activeTask, setActiveTask] = useState<Task | null>(null);
+  const [overId, setOverId] = useState<string | null>(null);
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -150,6 +159,21 @@ export function KanbanBoard() {
     }),
   );
 
+  const dragPreview = useMemo<DragPreview | null>(() => {
+    if (!activeTask || !overId) return null;
+
+    const projected = projectTaskMove(storeTasks, activeTask.id, overId);
+    if (!projected || projected.status === activeTask.status) {
+      return null;
+    }
+
+    return {
+      task: activeTask,
+      status: projected.status,
+      overId,
+    };
+  }, [activeTask, overId, storeTasks]);
+
   const tasksByColumn = useMemo(
     () => groupTasksByColumn(storeTasks),
     [storeTasks],
@@ -157,7 +181,19 @@ export function KanbanBoard() {
 
   const handleDragStart = (event: DragStartEvent) => {
     const task = storeTasks.find((t) => t.id === event.active.id);
-    if (task) setActiveTask(task);
+    if (task) {
+      setActiveTask(task);
+      setOverId(task.id);
+    }
+  };
+
+  const handleDragOver = (event: DragOverEvent) => {
+    setOverId(event.over ? String(event.over.id) : null);
+  };
+
+  const handleDragCancel = (_event: DragCancelEvent) => {
+    setActiveTask(null);
+    setOverId(null);
   };
 
   const handleDragEnd = (event: DragEndEvent) => {
@@ -165,6 +201,7 @@ export function KanbanBoard() {
     const originalTask = activeTask;
 
     setActiveTask(null);
+    setOverId(null);
 
     if (!over || !originalTask) return;
 
@@ -234,6 +271,8 @@ export function KanbanBoard() {
             sensors={sensors}
             collisionDetection={closestCorners}
             onDragStart={handleDragStart}
+            onDragOver={handleDragOver}
+            onDragCancel={handleDragCancel}
             onDragEnd={handleDragEnd}
           >
             <div className="flex gap-4 overflow-x-auto pb-4">
@@ -244,6 +283,12 @@ export function KanbanBoard() {
                   title={col.title}
                   tasks={tasksByColumn[col.status]}
                   accentColor={col.color}
+                  previewTask={
+                    dragPreview?.status === col.status ? dragPreview.task : null
+                  }
+                  previewOverId={
+                    dragPreview?.status === col.status ? dragPreview.overId : null
+                  }
                 />
               ))}
             </div>

@@ -24,14 +24,12 @@ export function runConflictSuite(
       description: null,
       status: overrides.status ?? "todo",
       rank: "a0",
-      timestamp: Date.now(),
     });
   }
 
   describe("Scenario 1: Concurrent Move + Edit (disjoint fields)", () => {
     test("both changes are preserved when targeting different fields", async () => {
       const task = await createTask({ title: "Original", status: "todo" });
-      const now = Date.now();
 
       const moveResult = await svc.moveTask({
         action: "MOVE_TASK",
@@ -39,7 +37,7 @@ export function runConflictSuite(
         taskId: task.id,
         newStatus: "done",
         newRank: "b0",
-        timestamp: now + 1,
+        basePositionVersion: task.positionVersion,
       });
       expect(moveResult.ok).toBe(true);
 
@@ -48,7 +46,7 @@ export function runConflictSuite(
         intentId: uuid(),
         taskId: task.id,
         newTitle: "Updated Title",
-        timestamp: now + 2,
+        baseTitleVersion: task.titleVersion,
       });
       expect(editResult.ok).toBe(true);
 
@@ -59,9 +57,8 @@ export function runConflictSuite(
   });
 
   describe("Scenario 2: Concurrent Move + Move (LWW)", () => {
-    test("later timestamp wins for same-field conflict", async () => {
+    test("later accepted move wins when it uses the current position version", async () => {
       const task = await createTask({ status: "todo" });
-      const baseTime = Date.now();
 
       const resultA = await svc.moveTask({
         action: "MOVE_TASK",
@@ -69,9 +66,12 @@ export function runConflictSuite(
         taskId: task.id,
         newStatus: "in_progress",
         newRank: "b0",
-        timestamp: baseTime + 1,
+        basePositionVersion: task.positionVersion,
       });
       expect(resultA.ok).toBe(true);
+      if (!resultA.ok) {
+        throw new Error("Expected first move to succeed");
+      }
 
       const resultB = await svc.moveTask({
         action: "MOVE_TASK",
@@ -79,7 +79,7 @@ export function runConflictSuite(
         taskId: task.id,
         newStatus: "done",
         newRank: "c0",
-        timestamp: baseTime + 2,
+        basePositionVersion: resultA.task.positionVersion,
       });
       expect(resultB.ok).toBe(true);
 
@@ -87,9 +87,8 @@ export function runConflictSuite(
       expect(final?.status).toBe("done");
     });
 
-    test("earlier timestamp is rejected by the service", async () => {
+    test("stale position version is rejected by the service", async () => {
       const task = await createTask({ status: "todo" });
-      const baseTime = Date.now();
 
       await svc.moveTask({
         action: "MOVE_TASK",
@@ -97,7 +96,7 @@ export function runConflictSuite(
         taskId: task.id,
         newStatus: "done",
         newRank: "c0",
-        timestamp: baseTime + 10,
+        basePositionVersion: task.positionVersion,
       });
 
       const staleResult = await svc.moveTask({
@@ -106,7 +105,7 @@ export function runConflictSuite(
         taskId: task.id,
         newStatus: "in_progress",
         newRank: "b0",
-        timestamp: baseTime + 1,
+        basePositionVersion: task.positionVersion,
       });
 
       expect(staleResult.ok).toBe(false);
@@ -125,7 +124,6 @@ export function runConflictSuite(
         description: null,
         status: "todo",
         rank: "a0",
-        timestamp: Date.now(),
       });
       const taskB = await svc.createTask({
         action: "CREATE_TASK",
@@ -134,7 +132,6 @@ export function runConflictSuite(
         description: null,
         status: "todo",
         rank: "a1",
-        timestamp: Date.now(),
       });
 
       const reorderResult = await svc.moveTask({
@@ -143,7 +140,7 @@ export function runConflictSuite(
         taskId: taskB.id,
         newStatus: "todo",
         newRank: "Zz",
-        timestamp: Date.now() + 1,
+        basePositionVersion: taskB.positionVersion,
       });
       expect(reorderResult.ok).toBe(true);
 
@@ -154,7 +151,6 @@ export function runConflictSuite(
         description: null,
         status: "todo",
         rank: "a2",
-        timestamp: Date.now() + 1,
       });
 
       const allTasks = await svc.getAllTasks();
@@ -173,13 +169,11 @@ export function runConflictSuite(
   describe("Scenario 4: Delete + Edit (Tombstone wins)", () => {
     test("edit is rejected when task is tombstoned", async () => {
       const task = await createTask({ title: "Original" });
-      const now = Date.now();
 
       const deleteResult = await svc.deleteTask({
         action: "DELETE_TASK",
         intentId: uuid(),
         taskId: task.id,
-        timestamp: now + 1,
       });
       expect(deleteResult.ok).toBe(true);
 
@@ -188,7 +182,7 @@ export function runConflictSuite(
         intentId: uuid(),
         taskId: task.id,
         newTitle: "Should Not Apply",
-        timestamp: now + 2,
+        baseTitleVersion: task.titleVersion,
       });
 
       expect(editResult.ok).toBe(false);
@@ -205,7 +199,6 @@ export function runConflictSuite(
         action: "DELETE_TASK",
         intentId: uuid(),
         taskId: toDelete.id,
-        timestamp: Date.now(),
       });
 
       const active = await svc.getAllTasks();
@@ -222,7 +215,6 @@ export function runConflictSuite(
         action: "DELETE_TASK",
         intentId: uuid(),
         taskId: task.id,
-        timestamp: Date.now(),
       });
       expect(first.ok).toBe(true);
 
@@ -230,7 +222,6 @@ export function runConflictSuite(
         action: "DELETE_TASK",
         intentId: uuid(),
         taskId: task.id,
-        timestamp: Date.now() + 1,
       });
       expect(second.ok).toBe(true);
 
@@ -240,25 +231,27 @@ export function runConflictSuite(
   });
 
   describe("Scenario 6: Edit + Edit — same field (LWW)", () => {
-    test("later timestamp wins when two clients edit the same field", async () => {
+    test("later accepted title edit wins when it uses the current version", async () => {
       const task = await createTask({ title: "Original" });
-      const baseTime = Date.now();
 
       const resultA = await svc.editTaskTitle({
         action: "EDIT_TASK_TITLE",
         intentId: uuid(),
         taskId: task.id,
         newTitle: "User A Title",
-        timestamp: baseTime + 1,
+        baseTitleVersion: task.titleVersion,
       });
       expect(resultA.ok).toBe(true);
+      if (!resultA.ok) {
+        throw new Error("Expected first title edit to succeed");
+      }
 
       const resultB = await svc.editTaskTitle({
         action: "EDIT_TASK_TITLE",
         intentId: uuid(),
         taskId: task.id,
         newTitle: "User B Title",
-        timestamp: baseTime + 2,
+        baseTitleVersion: resultA.task.titleVersion,
       });
       expect(resultB.ok).toBe(true);
 
@@ -266,16 +259,15 @@ export function runConflictSuite(
       expect(final?.title).toBe("User B Title");
     });
 
-    test("stale edit to same field is rejected by the service", async () => {
+    test("stale title version is rejected by the service", async () => {
       const task = await createTask({ title: "Original" });
-      const baseTime = Date.now();
 
       await svc.editTaskTitle({
         action: "EDIT_TASK_TITLE",
         intentId: uuid(),
         taskId: task.id,
         newTitle: "Newer Title",
-        timestamp: baseTime + 10,
+        baseTitleVersion: task.titleVersion,
       });
 
       const staleResult = await svc.editTaskTitle({
@@ -283,7 +275,7 @@ export function runConflictSuite(
         intentId: uuid(),
         taskId: task.id,
         newTitle: "Older Title",
-        timestamp: baseTime + 1,
+        baseTitleVersion: task.titleVersion,
       });
 
       expect(staleResult.ok).toBe(false);
@@ -296,14 +288,13 @@ export function runConflictSuite(
   describe("Scenario 7: Edit title + Edit description (disjoint fields)", () => {
     test("both edits apply independently without conflict", async () => {
       const task = await createTask({ title: "Original" });
-      const baseTime = Date.now();
 
       const titleResult = await svc.editTaskTitle({
         action: "EDIT_TASK_TITLE",
         intentId: uuid(),
         taskId: task.id,
         newTitle: "New Title",
-        timestamp: baseTime + 1,
+        baseTitleVersion: task.titleVersion,
       });
       expect(titleResult.ok).toBe(true);
 
@@ -312,7 +303,7 @@ export function runConflictSuite(
         intentId: uuid(),
         taskId: task.id,
         newDescription: "New Description",
-        timestamp: baseTime + 2,
+        baseDescriptionVersion: task.descriptionVersion,
       });
       expect(descResult.ok).toBe(true);
 
@@ -332,7 +323,6 @@ export function runConflictSuite(
           description: null,
           status: "todo",
           rank: "a0",
-          timestamp: Date.now(),
         }),
         svc.createTask({
           action: "CREATE_TASK",
@@ -341,7 +331,6 @@ export function runConflictSuite(
           description: null,
           status: "todo",
           rank: "a0",
-          timestamp: Date.now(),
         }),
       ]);
 

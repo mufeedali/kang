@@ -16,6 +16,9 @@ interface TaskRow {
   description: string | null;
   status: string;
   rank: string;
+  title_version: number;
+  description_version: number;
+  position_version: number;
   // Postgres returns Date objects; SQLite returns ms integers.
   created_at: Date | number;
   updated_at: Date | number;
@@ -35,27 +38,23 @@ function toTask(row: TaskRow): Task {
     description: row.description,
     status: row.status as Task["status"],
     rank: row.rank,
+    titleVersion: row.title_version,
+    descriptionVersion: row.description_version,
+    positionVersion: row.position_version,
     createdAt: toIso(row.created_at),
     updatedAt: toIso(row.updated_at),
     deletedAt: row.deleted_at != null ? toIso(row.deleted_at) : null,
   };
 }
 
-function toMs(value: Date | number): number {
-  return value instanceof Date ? value.getTime() : value;
-}
-
-function isNewer(
-  intentTimestamp: number,
-  rowUpdatedAt: Date | number,
-): boolean {
-  return intentTimestamp > toMs(rowUpdatedAt);
-}
-
 // Postgres stores timestamps as TIMESTAMPTZ (bind a Date); SQLite stores them
 // as INTEGER ms (bind the raw number).
 function dbTimestamp(ms: number): Date | number {
   return databaseDialect === "sqlite" ? ms : new Date(ms);
+}
+
+function serverTimestamp(): Date | number {
+  return dbTimestamp(Date.now());
 }
 
 function isUniqueConstraintError(err: unknown): boolean {
@@ -70,6 +69,14 @@ async function getActiveTaskRow(taskId: string): Promise<TaskRow | undefined> {
   const [row] = await db<TaskRow[]>`
     SELECT * FROM tasks
     WHERE id = ${taskId} AND deleted_at IS NULL
+  `;
+  return row;
+}
+
+async function getTaskRow(taskId: string): Promise<TaskRow | undefined> {
+  const [row] = await db<TaskRow[]>`
+    SELECT * FROM tasks
+    WHERE id = ${taskId}
   `;
   return row;
 }
@@ -126,26 +133,33 @@ export async function editTaskTitle(
 ): Promise<
   { ok: true; task: Task } | { ok: false; reason: string; serverState?: Task }
 > {
-  const existing = await getActiveTaskRow(intent.taskId);
+  const updatedAt = serverTimestamp();
+  const [updated] = await db<TaskRow[]>`
+    UPDATE tasks
+    SET
+      title = ${intent.newTitle.trim()},
+      title_version = title_version + 1,
+      updated_at = ${updatedAt}
+    WHERE
+      id = ${intent.taskId}
+      AND deleted_at IS NULL
+      AND title_version = ${intent.baseTitleVersion}
+    RETURNING *
+  `;
 
-  if (!existing) {
-    return { ok: false, reason: "Task not found or has been deleted." };
-  }
+  if (!updated) {
+    const existing = await getTaskRow(intent.taskId);
+    if (!existing || existing.deleted_at !== null) {
+      return { ok: false, reason: "Task not found or has been deleted." };
+    }
 
-  if (!isNewer(intent.timestamp, existing.updated_at)) {
     return {
       ok: false,
-      reason: "A newer edit has already been applied.",
+      reason: "A newer title edit has already been applied.",
       serverState: toTask(existing),
     };
   }
 
-  const [updated] = await db<TaskRow[]>`
-    UPDATE tasks
-    SET title = ${intent.newTitle.trim()}, updated_at = ${dbTimestamp(intent.timestamp)}
-    WHERE id = ${intent.taskId}
-    RETURNING *
-  `;
   return { ok: true, task: toTask(updated as TaskRow) };
 }
 
@@ -154,26 +168,33 @@ export async function editTaskDescription(
 ): Promise<
   { ok: true; task: Task } | { ok: false; reason: string; serverState?: Task }
 > {
-  const existing = await getActiveTaskRow(intent.taskId);
+  const updatedAt = serverTimestamp();
+  const [updated] = await db<TaskRow[]>`
+    UPDATE tasks
+    SET
+      description = ${intent.newDescription.trim()},
+      description_version = description_version + 1,
+      updated_at = ${updatedAt}
+    WHERE
+      id = ${intent.taskId}
+      AND deleted_at IS NULL
+      AND description_version = ${intent.baseDescriptionVersion}
+    RETURNING *
+  `;
 
-  if (!existing) {
-    return { ok: false, reason: "Task not found or has been deleted." };
-  }
+  if (!updated) {
+    const existing = await getTaskRow(intent.taskId);
+    if (!existing || existing.deleted_at !== null) {
+      return { ok: false, reason: "Task not found or has been deleted." };
+    }
 
-  if (!isNewer(intent.timestamp, existing.updated_at)) {
     return {
       ok: false,
-      reason: "A newer edit has already been applied.",
+      reason: "A newer description edit has already been applied.",
       serverState: toTask(existing),
     };
   }
 
-  const [updated] = await db<TaskRow[]>`
-    UPDATE tasks
-    SET description = ${intent.newDescription.trim()}, updated_at = ${dbTimestamp(intent.timestamp)}
-    WHERE id = ${intent.taskId}
-    RETURNING *
-  `;
   return { ok: true, task: toTask(updated as TaskRow) };
 }
 
@@ -184,13 +205,27 @@ export async function moveTask(
 ): Promise<
   { ok: true; task: Task } | { ok: false; reason: string; serverState?: Task }
 > {
-  const existing = await getActiveTaskRow(intent.taskId);
+  const updatedAt = serverTimestamp();
+  const [updated] = await db<TaskRow[]>`
+    UPDATE tasks
+    SET
+      status = ${intent.newStatus},
+      rank = ${intent.newRank},
+      position_version = position_version + 1,
+      updated_at = ${updatedAt}
+    WHERE
+      id = ${intent.taskId}
+      AND deleted_at IS NULL
+      AND position_version = ${intent.basePositionVersion}
+    RETURNING *
+  `;
 
-  if (!existing) {
-    return { ok: false, reason: "Task not found or has been deleted." };
-  }
+  if (!updated) {
+    const existing = await getTaskRow(intent.taskId);
+    if (!existing || existing.deleted_at !== null) {
+      return { ok: false, reason: "Task not found or has been deleted." };
+    }
 
-  if (!isNewer(intent.timestamp, existing.updated_at)) {
     return {
       ok: false,
       reason: "A newer move has already been applied.",
@@ -198,12 +233,6 @@ export async function moveTask(
     };
   }
 
-  const [updated] = await db<TaskRow[]>`
-    UPDATE tasks
-    SET status = ${intent.newStatus}, rank = ${intent.newRank}, updated_at = ${dbTimestamp(intent.timestamp)}
-    WHERE id = ${intent.taskId}
-    RETURNING *
-  `;
   return { ok: true, task: toTask(updated as TaskRow) };
 }
 
@@ -214,18 +243,18 @@ export async function deleteTask(
   | { ok: true; taskId: string }
   | { ok: false; reason: string; serverState: Task }
 > {
-  const [existing] = await db<TaskRow[]>`
-    SELECT * FROM tasks WHERE id = ${intent.taskId}
-  `;
+  const existing = await getTaskRow(intent.taskId);
 
   if (!existing || existing.deleted_at !== null) {
     return { ok: true, taskId: intent.taskId };
   }
 
+  const deletedAt = serverTimestamp();
   await db`
     UPDATE tasks
-    SET deleted_at = ${dbTimestamp(intent.timestamp)}
-    WHERE id = ${intent.taskId}
+    SET deleted_at = ${deletedAt}, updated_at = ${deletedAt}
+    WHERE id = ${intent.taskId} AND deleted_at IS NULL
   `;
+
   return { ok: true, taskId: intent.taskId };
 }
