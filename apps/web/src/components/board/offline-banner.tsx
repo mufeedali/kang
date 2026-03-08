@@ -1,5 +1,5 @@
 import { Loader2, WifiOff } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useKangStore } from "@/store/kang-store";
 
 export function OfflineBanner() {
@@ -8,12 +8,15 @@ export function OfflineBanner() {
   const queueLength = useKangStore((s) => s.offlineQueueLength);
 
   const [show, setShow] = useState(false);
+  const connectedOnce = useRef(false);
 
   useEffect(() => {
     if (isConnected) {
+      connectedOnce.current = true;
       setShow(false);
       return;
     }
+    if (!connectedOnce.current) return;
     const timer = setTimeout(() => setShow(true), 1000);
     return () => clearTimeout(timer);
   }, [isConnected]);
