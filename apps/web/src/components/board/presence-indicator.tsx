@@ -13,7 +13,7 @@ export function PresenceIndicator() {
 
   // Sort so current user is always first, memoized for efficiency
   const sortedUsers = useMemo(() => {
-    return [...users].sort((a, b) => {
+    return users.toSorted((a, b) => {
       if (a.userId === currentUser.userId) return -1;
       if (b.userId === currentUser.userId) return 1;
       return a.displayName.localeCompare(b.displayName);

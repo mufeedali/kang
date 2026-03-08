@@ -18,7 +18,10 @@ export default defineConfig({
   server: {
     host: true, // Listen on all addresses when using --host flag
     allowedHosts: allowedHostsEnv
-      ? allowedHostsEnv.split(",").map((s) => s.trim()).filter(Boolean)
+      ? allowedHostsEnv
+          .split(",")
+          .map((s) => s.trim())
+          .filter(Boolean)
       : ["localhost"],
   },
   build: {

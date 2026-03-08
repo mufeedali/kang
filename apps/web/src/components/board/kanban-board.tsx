@@ -36,7 +36,7 @@ type ProjectedMove = {
 };
 
 function sortTasksByRank(tasks: Task[]): Task[] {
-  return [...tasks].sort((a, b) =>
+  return tasks.toSorted((a, b) =>
     a.rank < b.rank ? -1 : a.rank > b.rank ? 1 : 0,
   );
 }
