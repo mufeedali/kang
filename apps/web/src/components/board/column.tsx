@@ -20,6 +20,7 @@ interface ColumnProps {
   title: string;
   tasks: Task[];
   accentColor: string;
+  endDropId: string;
   previewTask?: Task | null;
   previewOverId?: string | null;
 }
@@ -28,7 +29,7 @@ function DropPreview({ task }: { task: Task }) {
   return (
     <div className="rounded-xl border border-dashed border-primary/60 bg-primary/5 p-3">
       <div className="flex items-start gap-2">
-          <GripVertical className="mt-0.5 h-4 w-4 shrink-0 text-primary/40" />
+        <GripVertical className="mt-0.5 h-4 w-4 shrink-0 text-primary/40" />
         <div className="min-w-0 flex-1">
           <p className="text-sm font-medium leading-snug break-words text-foreground/85">
             {task.title}
@@ -49,6 +50,7 @@ export function Column({
   title,
   tasks,
   accentColor,
+  endDropId,
   previewTask = null,
   previewOverId = null,
 }: ColumnProps) {
@@ -58,12 +60,11 @@ export function Column({
   const createTask = useKangStore((s) => s.createTask);
 
   const { setNodeRef, isOver } = useDroppable({ id: status });
+  const { setNodeRef: setEndDropRef } = useDroppable({ id: endDropId });
 
   const taskIds = useMemo(() => tasks.map((t) => t.id), [tasks]);
   const showPreviewAtEnd =
-    !!previewTask &&
-    tasks.length > 0 &&
-    (!previewOverId || previewOverId === status);
+    !!previewTask && (previewOverId === status || previewOverId === endDropId);
 
   const handleAdd = () => {
     const trimmed = newTitle.trim();
@@ -162,14 +163,17 @@ export function Column({
           <div ref={setNodeRef} className="space-y-2 min-h-[40px] px-3 pb-3">
             {tasks.map((task) => (
               <div key={task.id} className="space-y-2">
-                {previewTask && previewOverId === task.id && <DropPreview task={previewTask} />}
+                {previewTask && previewOverId === task.id && (
+                  <DropPreview task={previewTask} />
+                )}
                 <TaskCard task={task} />
               </div>
             ))}
-            {showPreviewAtEnd && <DropPreview task={previewTask} />}
-            {!tasks.length && previewTask && previewOverId === status && (
-              <DropPreview task={previewTask} />
-            )}
+            <div ref={setEndDropRef} className="min-h-8">
+              {showPreviewAtEnd && previewTask ? (
+                <DropPreview task={previewTask} />
+              ) : null}
+            </div>
           </div>
         </SortableContext>
       </ScrollArea>

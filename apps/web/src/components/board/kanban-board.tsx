@@ -1,7 +1,7 @@
 import {
   closestCorners,
-  type DragCancelEvent,
   DndContext,
+  type DragCancelEvent,
   type DragEndEvent,
   type DragOverEvent,
   DragOverlay,
@@ -37,11 +37,16 @@ type ProjectedMove = {
   rank: string;
 };
 
-type DragPreview = {
-  task: Task;
-  status: TaskStatus;
-  overId: string;
-};
+function getColumnEndDropId(status: TaskStatus): string {
+  return `${status}__end`;
+}
+
+function getDropStatus(overId: string): TaskStatus | null {
+  if (isTaskStatus(overId)) return overId;
+
+  const status = overId.replace(/__end$/, "");
+  return isTaskStatus(status) ? status : null;
+}
 
 function sortTasksByRank(tasks: Task[]): Task[] {
   return tasks.toSorted((a, b) =>
@@ -77,11 +82,7 @@ function projectTaskMove(
   overId: string,
 ): ProjectedMove | null {
   const overTask = currentTasks.find((task) => task.id === overId);
-  const targetStatus = overTask
-    ? overTask.status
-    : isTaskStatus(overId)
-      ? overId
-      : null;
+  const targetStatus = overTask ? overTask.status : getDropStatus(overId);
 
   if (!targetStatus) return null;
 
@@ -95,7 +96,11 @@ function projectTaskMove(
     ),
   );
 
-  if (!overTask || overId === targetStatus) {
+  if (
+    !overTask ||
+    overId === targetStatus ||
+    overId === getColumnEndDropId(targetStatus)
+  ) {
     return {
       status: targetStatus,
       rank: generateKeyBetween(targetTasks.at(-1)?.rank ?? null, null),
@@ -159,7 +164,7 @@ export function KanbanBoard() {
     }),
   );
 
-  const dragPreview = useMemo<DragPreview | null>(() => {
+  const previewStatus = useMemo(() => {
     if (!activeTask || !overId) return null;
 
     const projected = projectTaskMove(storeTasks, activeTask.id, overId);
@@ -167,11 +172,7 @@ export function KanbanBoard() {
       return null;
     }
 
-    return {
-      task: activeTask,
-      status: projected.status,
-      overId,
-    };
+    return projected.status;
   }, [activeTask, overId, storeTasks]);
 
   const tasksByColumn = useMemo(
@@ -283,12 +284,9 @@ export function KanbanBoard() {
                   title={col.title}
                   tasks={tasksByColumn[col.status]}
                   accentColor={col.color}
-                  previewTask={
-                    dragPreview?.status === col.status ? dragPreview.task : null
-                  }
-                  previewOverId={
-                    dragPreview?.status === col.status ? dragPreview.overId : null
-                  }
+                  endDropId={getColumnEndDropId(col.status)}
+                  previewTask={previewStatus === col.status ? activeTask : null}
+                  previewOverId={previewStatus === col.status ? overId : null}
                 />
               ))}
             </div>
