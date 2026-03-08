@@ -111,6 +111,27 @@ class SyncEngine {
     }
   }
 
+  private showPeerUpdateToast(
+    actor: string,
+    oldTask: Task | null,
+    newTask: Task,
+  ) {
+    const STATUS_LABELS: Record<string, string> = {
+      todo: "To Do",
+      in_progress: "In Progress",
+      done: "Done",
+    };
+
+    if (oldTask && oldTask.status !== newTask.status) {
+      const col = STATUS_LABELS[newTask.status] ?? newTask.status;
+      toast(`${actor} moved "${newTask.title}" to ${col}`);
+    } else if (oldTask && oldTask.title !== newTask.title) {
+      toast(`${actor} renamed "${oldTask.title}" to "${newTask.title}"`);
+    } else {
+      toast(`${actor} updated "${newTask.title}"`);
+    }
+  }
+
   private showRejectionToast(
     intent: ClientIntent | undefined,
     taskTitle: string | null,
@@ -179,18 +200,45 @@ class SyncEngine {
         useKangStore.setState({ tasks: event.tasks, users: event.users });
         break;
 
-      case "TASK_CREATED":
-      case "TASK_UPDATED":
+      case "TASK_CREATED": {
+        const { currentUser } = useKangStore.getState();
+        if (event.actorId && event.actorId !== currentUser.userId) {
+          const actor = event.actorName ?? "Someone";
+          toast(`${actor} created "${event.task.title}"`);
+        }
         useKangStore.setState((state) => ({
           tasks: upsertTask(state.tasks, event.task),
         }));
         break;
+      }
 
-      case "TASK_DELETED":
+      case "TASK_UPDATED": {
+        const { currentUser, tasks } = useKangStore.getState();
+        if (event.actorId && event.actorId !== currentUser.userId) {
+          const actor = event.actorName ?? "Someone";
+          const oldTask = tasks.find((t) => t.id === event.task.id) ?? null;
+          this.showPeerUpdateToast(actor, oldTask, event.task);
+        }
+        useKangStore.setState((state) => ({
+          tasks: upsertTask(state.tasks, event.task),
+        }));
+        break;
+      }
+
+      case "TASK_DELETED": {
+        const { currentUser, tasks } = useKangStore.getState();
+        if (event.actorId && event.actorId !== currentUser.userId) {
+          const actor = event.actorName ?? "Someone";
+          const title = tasks.find((t) => t.id === event.taskId)?.title;
+          toast(
+            title ? `${actor} deleted "${title}"` : `${actor} deleted a task`,
+          );
+        }
         useKangStore.setState((state) => ({
           tasks: state.tasks.filter((t) => t.id !== event.taskId),
         }));
         break;
+      }
 
       case "ACTION_REJECTED": {
         const entry = this.pendingIntents.get(event.intentId);

@@ -38,6 +38,36 @@ function getPresenceList(): UserInfo[] {
   return [...seen.values()];
 }
 
+function getActorFields(ws: ServerWebSocket<unknown>): {
+  actorId?: string;
+  actorName?: string;
+} {
+  const actor = connectedClients.get(getRaw(ws));
+  if (!actor) return {};
+  return { actorId: actor.userId, actorName: actor.displayName };
+}
+
+type UpdateResult =
+  | { ok: true; task: import("../types").Task }
+  | { ok: false; reason: string; serverState?: import("../types").Task };
+
+function broadcastUpdateOrReject(
+  ws: ServerWebSocket<unknown>,
+  intentId: string,
+  result: UpdateResult,
+) {
+  if (result.ok) {
+    broadcast({ event: "TASK_UPDATED", task: result.task, ...getActorFields(ws) });
+  } else {
+    send(ws, {
+      event: "ACTION_REJECTED",
+      intentId,
+      reason: result.reason,
+      serverState: result.serverState,
+    });
+  }
+}
+
 export async function handleOpen(ws: ServerWebSocket<unknown>) {
   const tasks = await taskService.getAllTasks();
   send(ws, { event: "BOARD_STATE", tasks, users: getPresenceList() });
@@ -71,7 +101,7 @@ export async function handleMessage(
       }
 
       const task = await taskService.createTask(intent);
-      broadcast({ event: "TASK_CREATED", task });
+      broadcast({ event: "TASK_CREATED", task, ...getActorFields(ws) });
       break;
     }
 
@@ -85,32 +115,12 @@ export async function handleMessage(
         return;
       }
 
-      const result = await taskService.editTaskTitle(intent);
-      if (result.ok) {
-        broadcast({ event: "TASK_UPDATED", task: result.task });
-      } else {
-        send(ws, {
-          event: "ACTION_REJECTED",
-          intentId: intent.intentId,
-          reason: result.reason,
-          serverState: result.serverState,
-        });
-      }
+      broadcastUpdateOrReject(ws, intent.intentId, await taskService.editTaskTitle(intent));
       break;
     }
 
     case "EDIT_TASK_DESCRIPTION": {
-      const result = await taskService.editTaskDescription(intent);
-      if (result.ok) {
-        broadcast({ event: "TASK_UPDATED", task: result.task });
-      } else {
-        send(ws, {
-          event: "ACTION_REJECTED",
-          intentId: intent.intentId,
-          reason: result.reason,
-          serverState: result.serverState,
-        });
-      }
+      broadcastUpdateOrReject(ws, intent.intentId, await taskService.editTaskDescription(intent));
       break;
     }
 
@@ -124,24 +134,18 @@ export async function handleMessage(
         return;
       }
 
-      const result = await taskService.moveTask(intent);
-      if (result.ok) {
-        broadcast({ event: "TASK_UPDATED", task: result.task });
-      } else {
-        send(ws, {
-          event: "ACTION_REJECTED",
-          intentId: intent.intentId,
-          reason: result.reason,
-          serverState: result.serverState,
-        });
-      }
+      broadcastUpdateOrReject(ws, intent.intentId, await taskService.moveTask(intent));
       break;
     }
 
     case "DELETE_TASK": {
       const result = await taskService.deleteTask(intent);
       if (result.ok) {
-        broadcast({ event: "TASK_DELETED", taskId: result.taskId });
+        broadcast({
+          event: "TASK_DELETED",
+          taskId: result.taskId,
+          ...getActorFields(ws),
+        });
       } else {
         send(ws, {
           event: "ACTION_REJECTED",

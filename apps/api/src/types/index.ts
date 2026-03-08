@@ -110,16 +110,22 @@ export const BoardStateEventSchema = t.Object({
 export const TaskCreatedEventSchema = t.Object({
   event: t.Literal("TASK_CREATED"),
   task: TaskSchema,
+  actorId: t.Optional(t.String()),
+  actorName: t.Optional(t.String()),
 });
 
 export const TaskUpdatedEventSchema = t.Object({
   event: t.Literal("TASK_UPDATED"),
   task: TaskSchema,
+  actorId: t.Optional(t.String()),
+  actorName: t.Optional(t.String()),
 });
 
 export const TaskDeletedEventSchema = t.Object({
   event: t.Literal("TASK_DELETED"),
   taskId: t.String(),
+  actorId: t.Optional(t.String()),
+  actorName: t.Optional(t.String()),
 });
 
 export const ActionRejectedEventSchema = t.Object({

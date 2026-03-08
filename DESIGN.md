@@ -2,19 +2,6 @@
 
 A multi-user kanban board.
 
-# Principles
-
-- Cutting edge but not too cutting edge.
-- Simple wherever possible. Avoid unnecessary complexity.
-- Avoid boilerplate as much as possible. UNLESS the benefits far outweigh the cons. (vite, for example)
-- One WebSocket connection for basically everything.
-- CRDT implementation:
-    - Every operation has to be atomic.
-    - Non-conflicting actions should not result in a conflict.
-- UI should look decent.
-- Does NOT need to be "production-ready" in the truest sense. But I should be able to explain *how* I could potentially scale it.
-- Dev env must be deployable through Docker/Podman with Compose.
-
 # Stack
 
 - Backend:
@@ -28,6 +15,20 @@ A multi-user kanban board.
 - fractional-indexing for task ordering
     - Why? Collision handling has too many edge cases.
 - Biome for linting and formatting.
+
+# Personal Principles
+
+- Cutting edge but not too cutting edge.
+- Simple wherever possible. Avoid unnecessary complexity.
+- Avoid boilerplate as much as possible. UNLESS the benefits far outweigh the cons. (vite, for example)
+- One WebSocket connection for basically everything.
+- CRDT implementation:
+    - Every operation has to be atomic.
+    - Non-conflicting actions should not result in a conflict.
+- UI should look decent.
+- Does NOT need to be "production-ready" in the truest sense. But I should be able to explain *how* I could potentially scale it.
+- Dev env must be deployable through Docker/Podman with Compose.
+- This is only an opportunity to learn about things. Nothing else.
 
 # Client-Server Architecture
 
