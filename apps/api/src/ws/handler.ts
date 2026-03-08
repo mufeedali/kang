@@ -57,7 +57,11 @@ function broadcastUpdateOrReject(
   result: UpdateResult,
 ) {
   if (result.ok) {
-    broadcast({ event: "TASK_UPDATED", task: result.task, ...getActorFields(ws) });
+    broadcast({
+      event: "TASK_UPDATED",
+      task: result.task,
+      ...getActorFields(ws),
+    });
   } else {
     send(ws, {
       event: "ACTION_REJECTED",
@@ -115,12 +119,20 @@ export async function handleMessage(
         return;
       }
 
-      broadcastUpdateOrReject(ws, intent.intentId, await taskService.editTaskTitle(intent));
+      broadcastUpdateOrReject(
+        ws,
+        intent.intentId,
+        await taskService.editTaskTitle(intent),
+      );
       break;
     }
 
     case "EDIT_TASK_DESCRIPTION": {
-      broadcastUpdateOrReject(ws, intent.intentId, await taskService.editTaskDescription(intent));
+      broadcastUpdateOrReject(
+        ws,
+        intent.intentId,
+        await taskService.editTaskDescription(intent),
+      );
       break;
     }
 
@@ -134,7 +146,11 @@ export async function handleMessage(
         return;
       }
 
-      broadcastUpdateOrReject(ws, intent.intentId, await taskService.moveTask(intent));
+      broadcastUpdateOrReject(
+        ws,
+        intent.intentId,
+        await taskService.moveTask(intent),
+      );
       break;
     }
 
