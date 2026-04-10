@@ -23,7 +23,7 @@ bun run lint
 
 ## Deployment
 
-Demo instance is present at: https://kang.up.railway.app/
+Demo instance is present at: https://y9etoglng1gy-production-totbn718.europe-west1.suga.run/
 
 The compose files are only tested with podman as of now.
 
