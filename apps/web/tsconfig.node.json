@@ -4,7 +4,7 @@
     "target": "ESNext",
     "lib": ["ESNext"],
     "module": "ESNext",
-    "types": ["node"],
+    "types": ["node", "bun"],
     "skipLibCheck": true,
 
     /* Bundler mode */
@@ -22,5 +22,5 @@
     "noFallthroughCasesInSwitch": true,
     "noUncheckedSideEffectImports": true
   },
-  "include": ["vite.config.ts"]
+  "include": ["vite.config.ts", "server.ts"]
 }

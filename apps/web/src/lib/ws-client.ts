@@ -1,7 +1,26 @@
 import { type Treaty, treaty } from "@elysiajs/eden";
 import type { ClientIntent, ServerEvent } from "@/types";
 import type { WsContractRoutes } from "../../../api/src/contract";
-import { getWsBaseUrl } from "./runtime-config";
+
+declare global {
+  interface Window {
+    KANG_API_URL?: string;
+  }
+}
+
+function resolveApiBase(): string {
+  const raw =
+    window.KANG_API_URL?.trim() ||
+    (import.meta.env.VITE_API_URL as string | undefined)?.trim() ||
+    "http://localhost:3001";
+  // Normalise wss/ws → https/http so Eden constructs the WebSocket URL itself.
+  // Strip any trailing /ws or /wss path segment — Eden appends the route.
+  return raw
+    .replace(/^wss:\/\//, "https://")
+    .replace(/^ws:\/\//, "http://")
+    .replace(/\/(wss?)(\/.*)?$/, "")
+    .replace(/\/+$/, "");
+}
 
 type TreatyApp = Treaty.Sign<WsContractRoutes>;
 type WsSub = ReturnType<TreatyApp["ws"]["subscribe"]>;
@@ -122,4 +141,4 @@ class WsClient {
   }
 }
 
-export const wsClient = new WsClient(getWsBaseUrl());
+export const wsClient = new WsClient(resolveApiBase());

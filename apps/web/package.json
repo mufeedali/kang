@@ -7,7 +7,7 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "preview": "vite preview",
-    "start": "bun ./scripts/write-runtime-config.ts dist && serve dist -s -l ${PORT:-4173}"
+    "start": "bun run server.ts"
   },
   "dependencies": {
     "@base-ui/react": "^1.2.0",
@@ -31,6 +31,7 @@
   },
   "devDependencies": {
     "@tailwindcss/vite": "^4.2.1",
+    "@types/bun": "latest",
     "@types/node": "^24.10.1",
     "@types/react": "^19.2.7",
     "@types/react-dom": "^19.2.3",

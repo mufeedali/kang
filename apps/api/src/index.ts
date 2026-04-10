@@ -25,7 +25,7 @@ new Elysia()
       handleClose(ws as never);
     },
   })
-  .listen(port);
+  .listen({ port, hostname: "0.0.0.0" });
 
-console.log(`Kang API running at http://localhost:${port}`);
+console.log(`Kang API running at http://0.0.0.0:${port}`);
 console.log(`WebSocket at ws://localhost:${port}/ws`);
