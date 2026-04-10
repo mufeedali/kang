@@ -1,6 +1,6 @@
 import { cors } from "@elysiajs/cors";
 import { Elysia } from "elysia";
-import { wsSchemas } from "./contract";
+import { wsRoute, wsSchemas } from "./contract";
 import { migrate } from "./db/schema";
 import { handleClose, handleMessage, handleOpen } from "./ws/handler";
 
@@ -11,7 +11,7 @@ await migrate();
 new Elysia()
   .use(cors())
   .get("/health", () => ({ status: "ok" }))
-  .ws("/ws", {
+  .ws(wsRoute, {
     ...wsSchemas,
     open(ws) {
       handleOpen(ws as never);

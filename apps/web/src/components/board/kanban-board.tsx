@@ -28,13 +28,17 @@ import { OfflineBanner } from "./offline-banner";
 import { PresenceIndicator } from "./presence-indicator";
 import { TaskCardPreview } from "./task-card";
 
-const COLUMNS: { status: TaskStatus; title: string; color: string }[] = [
+const COLUMNS = [
   { status: "todo", title: "To Do", color: "#3B82F6" },
   { status: "in_progress", title: "In Progress", color: "#F59E0B" },
   { status: "done", title: "Done", color: "#22C55E" },
-];
+] as const satisfies ReadonlyArray<{
+  status: TaskStatus;
+  title: string;
+  color: string;
+}>;
 
-const TASK_STATUSES: TaskStatus[] = ["todo", "in_progress", "done"];
+const TASK_STATUSES = ["todo", "in_progress", "done"] satisfies TaskStatus[];
 
 function groupTasksByColumn(tasks: Task[]): Record<TaskStatus, Task[]> {
   const grouped: Record<TaskStatus, Task[]> = {

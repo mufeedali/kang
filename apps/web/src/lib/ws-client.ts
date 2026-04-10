@@ -1,10 +1,9 @@
-import { treaty } from "@elysiajs/eden";
+import { type Treaty, treaty } from "@elysiajs/eden";
 import type { ClientIntent, ServerEvent } from "@/types";
-import type { App } from "../../../api/src/contract";
+import type { WsContractRoutes } from "../../../api/src/contract";
+import { getWsBaseUrl } from "./runtime-config";
 
-// Derive the subscription type from the app contract so send() and
-// subscribe() are fully type-checked against the backend schemas.
-type TreatyApp = ReturnType<typeof treaty<App>>;
+type TreatyApp = Treaty.Sign<WsContractRoutes>;
 type WsSub = ReturnType<TreatyApp["ws"]["subscribe"]>;
 
 type WebSocketEventHandler = (event: ServerEvent) => void;
@@ -59,11 +58,12 @@ class WsClient {
 
     this.onConnectionChange?.(true, false);
 
-    this.sub = treaty<App>(this.host).ws.subscribe();
+    const client = treaty(this.host, {
+      parseDate: false,
+    }) as unknown as TreatyApp;
 
-    // Capture the raw WebSocket for lifecycle hooks.  Eden serialises/
-    // deserialises JSON automatically, so we only touch rawWs for open/close/
-    // error events — message handling goes through the typed subscribe() below.
+    this.sub = client.ws.subscribe();
+
     const rawWs = this.sub.ws;
 
     this.sub.subscribe(({ data }) => {
@@ -122,6 +122,4 @@ class WsClient {
   }
 }
 
-export const wsClient = new WsClient(
-  import.meta.env.VITE_API_URL ?? "http://localhost:3001",
-);
+export const wsClient = new WsClient(getWsBaseUrl());

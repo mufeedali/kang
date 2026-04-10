@@ -1,6 +1,6 @@
 import type { ServerWebSocket } from "bun";
 import * as taskService from "../services/task-service";
-import type { ClientIntent, ServerEvent, UserInfo } from "../types";
+import type { ClientIntent, ServerEvent, TaskStatus, UserInfo } from "../types";
 
 // Elysia creates a new ElysiaWS wrapper on every event (open, message, close)
 // even though they all wrap the same underlying Bun ServerWebSocket. Using the
@@ -15,7 +15,7 @@ const connectedClients = new Map<ServerWebSocket<unknown>, UserInfo>();
 
 function broadcast(event: ServerEvent, exclude?: ServerWebSocket<unknown>) {
   const message = JSON.stringify(event);
-  for (const [raw] of connectedClients) {
+  for (const raw of connectedClients.keys()) {
     if (raw !== exclude && raw.readyState === 1) {
       raw.send(message);
     }
@@ -24,9 +24,7 @@ function broadcast(event: ServerEvent, exclude?: ServerWebSocket<unknown>) {
 
 function send(ws: ServerWebSocket<unknown>, event: ServerEvent) {
   const raw = getRaw(ws);
-  if (raw.readyState === 1) {
-    raw.send(JSON.stringify(event));
-  }
+  raw?.readyState === 1 && raw.send(JSON.stringify(event));
 }
 
 function getPresenceList(): UserInfo[] {
@@ -43,8 +41,7 @@ function getActorFields(ws: ServerWebSocket<unknown>): {
   actorName?: string;
 } {
   const actor = connectedClients.get(getRaw(ws));
-  if (!actor) return {};
-  return { actorId: actor.userId, actorName: actor.displayName };
+  return actor ? { actorId: actor.userId, actorName: actor.displayName } : {};
 }
 
 type UpdateResult =
@@ -82,7 +79,7 @@ export async function handleMessage(
   ws: ServerWebSocket<unknown>,
   intent: ClientIntent,
 ) {
-  const validStatuses = ["todo", "in_progress", "done"];
+  const validStatuses = new Set<TaskStatus>(["todo", "in_progress", "done"]);
 
   try {
     switch (intent.action) {
@@ -144,7 +141,7 @@ export async function handleMessage(
       }
 
       case "MOVE_TASK": {
-        if (!validStatuses.includes(intent.newStatus)) {
+        if (!validStatuses.has(intent.newStatus)) {
           send(ws, {
             event: "ACTION_REJECTED",
             intentId: intent.intentId,

@@ -26,9 +26,10 @@ interface TaskRow {
 }
 
 function toIso(value: Date | number): string {
-  return value instanceof Date
-    ? value.toISOString()
-    : new Date(value).toISOString();
+  if (typeof value !== "number") {
+    return value.toISOString();
+  }
+  return new Date(value).toISOString();
 }
 
 function toTask(row: TaskRow): Task {
@@ -62,10 +63,11 @@ function normalizedDescription(value: string): string | null {
 }
 
 function isUniqueConstraintError(err: unknown): boolean {
-  const code = (err as { code?: string })?.code;
+  if (!err || typeof err !== "object") return false;
+  const code = (err as { code?: unknown }).code;
   return (
-    code === "23505" ||
-    (typeof code === "string" && code.startsWith("SQLITE_CONSTRAINT"))
+    typeof code === "string" &&
+    (code === "23505" || code.startsWith("SQLITE_CONSTRAINT"))
   );
 }
 
@@ -118,7 +120,7 @@ export async function getTask(taskId: string): Promise<Task | undefined> {
 export async function createTask(intent: CreateTaskIntent): Promise<Task> {
   let rank = intent.rank;
 
-  for (;;) {
+  while (true) {
     try {
       const [row] = await db<TaskRow[]>`
         INSERT INTO tasks (id, title, description, status, rank)

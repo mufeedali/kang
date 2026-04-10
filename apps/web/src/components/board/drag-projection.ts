@@ -1,7 +1,7 @@
 import { generateKeyBetween } from "fractional-indexing";
 import type { Task, TaskStatus } from "@/types";
 
-const TASK_STATUSES: TaskStatus[] = ["todo", "in_progress", "done"];
+const TASK_STATUSES = ["todo", "in_progress", "done"] satisfies TaskStatus[];
 
 export type ProjectedMove = {
   status: TaskStatus;
